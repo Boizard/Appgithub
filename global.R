@@ -123,10 +123,11 @@ replaceproptestNA<-function(toto,threshold=0.05,rempNA,maxvaluesgroupmin=100,min
     for (i in 1:ncol(totopropselect)){
       totopropselect[which(is.na(totopropselect[,i])&class==as.character(resp[i,"lessgroup"])),i]<-0
     }
-    totopropselect<<-replaceNA(toto =data.frame(class,totopropselect),rempNA = rempNA )[,-1]
+     
+    totopropselect<-replaceNA(toto =cbind(class,totopropselect),rempNA = rempNA )[,-1]
   }
   }
-  else(return(NULL))
+  else{return(NULL)}
   return(totopropselect[, order(resp[,2])])
 }
 

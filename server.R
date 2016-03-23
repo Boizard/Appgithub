@@ -122,14 +122,14 @@ shinyServer(function(input, output,session) {
   SELECTDATA<-reactive({
   tabdecouv<-DATA()$LEARNING
   restrict<-as.logical(input$restrict)
-  tabselect<-selectprctNA(tabdecouv,input$prctNA,group=input$NAgroup,restrictif =restrict)
+  tabselect<<-selectprctNA(tabdecouv,input$prctNA,group=input$NAgroup,restrictif =restrict)
 
   })
 #####
 #Selection Output
 #####
   output$heatmapNA<-renderPlot({
-    tabselect<<-SELECTDATA()
+    tabselect<-SELECTDATA()
     heatmapNA(toto =tabselect[,-1], names =paste(tabselect[,1],1:length(tabselect[,1])))
     #plot(x = (tabselect[,2:3]))
   })
@@ -183,8 +183,10 @@ shinyServer(function(input, output,session) {
     if(input$structdata=="alldata"){tabdecouv<-DATA()$LEARNING}
     if(input$structdata=="selecteddata"){tabdecouv<-SELECTDATA()}
 
-    NAstructuressNA<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero = T)
-    NAstructure<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero=F)
+    NAstructuressNA<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
+                              maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero = T)
+    NAstructure<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
+                              maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero=F)
     list(NAstructuressNA=NAstructuressNA,NAstructure=NAstructure)
   })
     
@@ -282,7 +284,7 @@ shinyServer(function(input, output,session) {
     else{
         datatest<-diffexptest(toto = tabselectssNA,test = input$test ,adjustpval=input$adjustpv)
     #differential expressed          
-        datatestdiff<-datatest[which( (datatest$pval<input$thresholdpv)&(abs(datatest$logFC)>input$thresholdFC )),]
+        datatestdiff<<-datatest[which( (datatest$pval<input$thresholdpv)&(abs(datatest$logFC)>input$thresholdFC )),]
         if(dim(datatestdiff)[1]==0){
             print("no differentially expressed variables")
             tabdiff<<-data.frame()
