@@ -1,5 +1,5 @@
 
-#Package
+#Packages
 
 library("zoo")
 library("FactoMineR") #PCA
