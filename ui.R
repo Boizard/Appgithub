@@ -49,7 +49,6 @@ shinyUI(fluidPage(
        ),
        
        conditionalPanel(condition ="input.confirmdatabutton!=0",
-          actionButton("restartbutton","Restart App"),
           h4("Learning data"),
           textOutput("namefilelearn",inline=T), tags$head(tags$style("#namefilelearn{color: grey;font-size: 15px;font-style: italic;}")),
           br(),
@@ -140,8 +139,8 @@ shinyUI(fluidPage(
                                           p(downloadButton("downloadstructur","Download plot"),
                                             downloadButton('downloaddatastructur', 'Download raw data'),align="center")),
                                    column(3,br(),br(),
-                                          numericInput("maxvaluesgroupmin","Maximum of % values authorized in the group with the minimum values",value = 100,min = 0,max = 100,step = 5),
-                                          numericInput("minvaluesgroupmax","Minimum of % values authorized in the group with the maximum values",value = 0,min = 0,max = 100,step = 5)))
+                                          numericInput("maxvaluesgroupmin","Maximum of % values authorized in the group with the minimum values",value = 25,min = 0,max = 100,step = 5),
+                                          numericInput("minvaluesgroupmax","Minimum of % values authorized in the group with the maximum values",value = 75,min = 0,max = 100,step = 5)))
                 )),
                 tabPanel("Transform Data", 
                          fluidRow(

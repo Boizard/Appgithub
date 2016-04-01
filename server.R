@@ -3,7 +3,7 @@
 source("global.R")
 tablearn<<-data.frame()    
 tabval<<-data.frame()
-
+lev<<-vector()
 tabdiff<<-data.frame()
 testdiffdata<<-data.frame()
 shinyServer(function(input, output,session) {    
@@ -63,6 +63,9 @@ shinyServer(function(input, output,session) {
       }
       if(input$confirmdatabutton!=0){
         tablearn<<-confirmdata(toto = tablearn)
+        lev<-levels(x = tablearn[,1])
+        names(lev)<-c("positif","negatif")
+        lev<<-lev
       }
     }
     if(!is.null(input$validationfile)  ){
@@ -84,7 +87,8 @@ shinyServer(function(input, output,session) {
     }
     else{tabval<-NULL}
      list(LEARNING=tablearn, 
-          VALIDATION=tabval)
+          VALIDATION=tabval,
+          LEVELS=lev)
     })
   #####
   #dataTable output
@@ -185,7 +189,7 @@ shinyServer(function(input, output,session) {
 
     NAstructuressNA<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
                               maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero = T)
-    NAstructure<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
+    NAstructure<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
                               maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero=F)
     list(NAstructuressNA=NAstructuressNA,NAstructure=NAstructure)
   })
@@ -194,7 +198,7 @@ shinyServer(function(input, output,session) {
   output$heatmapNAstructure<-renderPlot({
     class<-DATA()$LEARNING[,1]
     NAstructure<-NASTRUCT()$NAstructure
-    heatmapNA(NAstructure,names = paste(class,1:length(class)))            
+    heatmapNA(toto=NAstructure,names = paste(class,1:length(class)))            
     #else{errorplot(text = " No NA's structure")}
   })
   
@@ -217,9 +221,14 @@ shinyServer(function(input, output,session) {
 #####  
   TRANSFORMDATA<-reactive({
     tabselect<<-SELECTDATA()
+    numcol<-ncol(tabselect)
     if(input$NAstructure){
-      tabNAstructure<-NASTRUCT()$NAstructuressNA
-      tabselect<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
+      NAstructure<<-NASTRUCT()$NAstructuressNA
+      if(!is.null(NAstructure)){
+      tabselect1<-cbind(tabselect,NAstructure[,!colnames(NAstructure)%in%colnames(tabselect)])
+      colnames(tabselect1)[(numcol+1):ncol(tabselect1)]<-colnames(NAstructure)[!colnames(NAstructure)%in%colnames(tabselect)]
+      tabselect<-tabselect1
+      }
     } 
     
     if(input$log) { 
@@ -355,8 +364,8 @@ shinyServer(function(input, output,session) {
     #Modelisation 
     #Learning
     if(input$model!="nomodel"){
-        if(input$test=="notest"){learning<<-TRANSFORMDATA()}
-        else{learning<<-TEST()$tabdiff}
+        if(input$test=="notest"){learning<-TRANSFORMDATA()}
+        else{learning<-TEST()$tabdiff}
         if(input$invers){
             learning[,1]<-factor(learning[,1],levels = rev(levels(learning[,1])),ordered = TRUE)
         }
@@ -367,8 +376,8 @@ shinyServer(function(input, output,session) {
     #Build model
         if (input$model=="randomforest"){
             set.seed(20011203)
-            model <- randomForest(learning[,-1],learning[,1],ntree=5000,
-                            sampsize=40,nodesize=2,importance=T,keep.forest=T)
+            model <- randomForest(learning[,-1],learning[,1],ntree=500,
+                            importance=T,keep.forest=T)
             
             scoredecouv =data.frame(model$votes[,lev["positif"]])
             colnames(scoredecouv)<-paste(lev[1],"/",lev[2],sep="")
@@ -407,7 +416,7 @@ shinyServer(function(input, output,session) {
     if (input$adjustval){
     #Validation
         tabval<-DATA()$VALIDATION
-        tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(learning))]
+        tabvaldiff<<-tabval[,which(colnames(tabval)%in%colnames(learning))]
         if(input$log) { 
           tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
         #NAstructure if NA ->0
@@ -417,6 +426,7 @@ shinyServer(function(input, output,session) {
         for (i in 1:length(varstructure)){
           tabvaldiff[is.na(tabvaldiff[,varstructure[i]]),varstructure[i]]<-0 }
         }
+        print("rt")
         #merge learning tabvaldiff
         alldata<-rbind(tabvaldiff,learning)
         if(input$rempNA=="moygr"){ 

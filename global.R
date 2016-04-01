@@ -1,24 +1,30 @@
 
 #Packages
-
-library("zoo")
-library("FactoMineR") #PCA
-library("missMDA")#imputepca
-library("subselect")
-library("ggplot2")#Graphs
-library("stats")
-library("e1071")#svm
-library("pROC")#roccurve
-library("devtools")
-library("readxl")
-
+usePackage <- function(p) 
+{
+  if (!is.element(p, installed.packages()[,1]))
+    install.packages(p, dep = TRUE)
+  require(p, character.only = TRUE)
+}
+usePackage("zoo")
+usePackage("FactoMineR") #PCA
+usePackage("missMDA")#imputepca
+usePackage("subselect")
+usePackage("ggplot2")#Graphs
+usePackage("stats")
+usePackage("e1071")#svm
+usePackage("pROC")#roccurve
+usePackage("devtools")
+usePackage("readxl")
+usePackage("shiny")
+usePackage("plyr")
 # if (!is.element("factoextra", installed.packages()[,1]))
 #   install_github("kassambara/factoextra")
-library("factoextra")#PCA graphs
-library("reshape2")#melt function
-library("xlsx")#import fichier xls#Fonctions
-library("randomForest")
-library("missForest")
+usePackage("factoextra")#PCA graphs
+usePackage("reshape2")#melt function
+usePackage("xlsx")#import fichier xls#Fonctions
+usePackage("randomForest")
+usePackage("missForest")
 
 
 ##########################
@@ -116,19 +122,22 @@ replaceproptestNA<-function(toto,threshold=0.05,rempNA,maxvaluesgroupmin=100,min
   vecond<-c(resproptest$pval<=threshold & resproptest$prctless<=(maxvaluesgroupmin/100) & resproptest$prctmore>=(minvaluesgroupmax/100))
   if(sum(vecond)>0){
     resp<-resproptest[vecond,]
-    totopropselect<-as.data.frame(toto[,vecond])
+    totopropselect<-data.frame(toto[,vecond])
+    colnames(totopropselect)<-resp$names
     #print(heatmapNA(totopropselect[, order(resp[,2])],names = paste(class,1:length(class)))            )
     #rempNA des 0
     if(replacezero){
     for (i in 1:ncol(totopropselect)){
       totopropselect[which(is.na(totopropselect[,i])&class==as.character(resp[i,"lessgroup"])),i]<-0
     }
-     
-    totopropselect<-replaceNA(toto =cbind(class,totopropselect),rempNA = rempNA )[,-1]
+    totopropselect<-as.data.frame(replaceNA(toto =cbind(class,totopropselect),rempNA = rempNA )[,-1])
   }
   }
   else{return(NULL)}
-  return(totopropselect[, order(resp[,2])])
+  print("pas nul")
+  totopropselect<-as.data.frame(totopropselect[, order(resp[,2])])
+  colnames(totopropselect)<-resp$names[order(resp[,2])]
+  return(totopropselect)
 }
 
 replaceNA<-function(toto,rempNA="z",pos=T,NAstructure=F,thresholdstruct=0.05,maxvaluesgroupmin=100,minvaluesgroupmax=0){ 
@@ -279,11 +288,11 @@ distributionNA<-function(toto,prctNAselect,nvar,maintitle="Number of variables a
   percentageNA<-seq(0,1,by = 0.01)
   prctall<-apply(X = toto,MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto)
   NAwhithoutgroup<-sapply(X = percentageNA,FUN = function(x,prct=prctall){sum(x>=prct)})
-  prctTem<-apply(X = toto[which(toto[,1]=="Tem"),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]=="Tem"),])
-  prctOP<-apply(X = toto[which(toto[,1]=="OP"),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]=="OP"),])
+  prctlev1<-apply(X = toto[which(toto[,1]==levels(toto[,1])[1]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[1]),])
+  prctlev2<-apply(X = toto[which(toto[,1]==levels(toto[,1])[2]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[2]),])
   
-  NApergroupmin<-sapply(X = percentageNA,FUN = function(x,prct1=prctOP,prct2=prctTem){sum(x>=apply(rbind(prct1,prct2),2,min))})  
-  NApergroupmax<-sapply(X = percentageNA,FUN = function(x,prct1=prctOP,prct2=prctTem){sum(x>=apply(rbind(prct1,prct2),2,max))})  
+  NApergroupmin<-sapply(X = percentageNA,FUN = function(x,prct1=prctlev1,prct2=prctlev2){sum(x>=apply(rbind(prct1,prct2),2,min))})  
+  NApergroupmax<-sapply(X = percentageNA,FUN = function(x,prct1=prctlev1,prct2=prctlev2){sum(x>=apply(rbind(prct1,prct2),2,max))})  
 
   distribNA<<-data.frame("percentageNA"=percentageNA,"whithout groups"=NAwhithoutgroup,"both groups"= NApergroupmax,"at least one group"=NApergroupmin)
   if(!graph)(return(distribNA))
@@ -306,12 +315,12 @@ distributionNA<-function(toto,prctNAselect,nvar,maintitle="Number of variables a
   }
 }
 boxplotNAgroup<-function(toto,maintitle="percentage of NA in variable\nseparate by group",ggplot=T,graph=T){
-  prctTem<-apply(X = toto[which(toto[,1]=="Tem"),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]=="Tem"),])
-  prctOP<-apply(X = toto[which(toto[,1]=="OP"),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]=="OP"),])
-  if(!graph)(return(rbind(prctTem,prctOP)))
-  if(!ggplot){boxplot(prctOP,prctTem,col=c("red","blue"),names=c("OP",'Tem'),main=maintitle)}
+  prctlev1<-apply(X = toto[which(toto[,1]==levels(toto[,1])[1]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[1]),])
+  prctlev2<-apply(X = toto[which(toto[,1]==levels(toto[,1])[2]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[2]),])
+  if(!graph)(return(rbind(prctlev1,prctlev2)))
+  if(!ggplot){boxplot(prctlev1,prctlev2,col=c("red","blue"),names=c(levels(toto[,1])[1],levels(toto[,1])[2]),main=maintitle)}
   if(ggplot){
-    data<-data.frame("group"=rep(c("Tem","OP"),each=length(prctTem)),"prctNA"=c(prctTem,prctOP))
+    data<-data.frame("group"=rep(c(levels(toto[,1])[2],levels(toto[,1])[2]),each=length(prctlev1)),"prctNA"=c(prctlev1,prctlev2))
     p<-ggplot(data, aes(x=group, y=prctNA, fill=group)) +
       geom_boxplot()+
       ggtitle(maintitle)+theme(plot.title=element_text( size=15))
@@ -358,11 +367,9 @@ heatmapNAstructure<-function(toto,threshold){
 heatmapplot<-function(toto,nbclass=0,ggplot=T,maintitle="Heatmap of the transform data ",scale=F,graph=T){
   
   row.names(toto)<-paste(toto[,1],1:length(toto[,1]))
-  indTem<-which(toto[,1]=="Tem")
   toto<-as.matrix(toto[,-1])
   colnames(toto)<-seq(1:ncol(toto))
   if(scale)toto<-scale(toto, center = TRUE, scale = TRUE)
-  #toto<-toto[,order(colMeans(toto[indTem,]))]
   if(nbclass>0){
     quant<-quantile(toto,probs=seq(0,1,length=nbclass+1))
   }
@@ -416,72 +423,68 @@ diffexptest<-function(toto,test="Wtest",adjustpval=F){
   x<-toto[,1]
   toto<-toto[,-1]
   pval<-vector()
-  mOP<-vector()
-  mTem<-vector()
+  mlev1<-vector()
+  mlev2<-vector()
   difNA<-vector()#idea see the diff of %NA between the two groups
   FC<-vector()
 
   for (i in 1:max(1,ncol(toto)) ){
-    OP<-toto[which(x=="OP"),i]
-    Tem<-toto[which(x=="Tem"),i]
-    mOP[i]<-mean(OP,na.rm = T)+0.0001
-    mTem[i]<-mean(Tem,na.rm = T)+0.0001
+    lev1<-toto[which(x==levels(x)[1]),i]
+    lev2<-toto[which(x==levels(x)[2]),i]
+    mlev1[i]<-mean(lev1,na.rm = T)+0.0001
+    mlev2[i]<-mean(lev2,na.rm = T)+0.0001
     
-    # if (sum(!is.na(Tem))<2){Tem<-rep(mTem[i],times=2)}
-    #if (sum(!is.na(OP))<2){OP<-rep(mOP[i],times=2)}
-    
-    FC[i]<-mOP[i]/mTem[i]
-    if( test=="Ttest"){pval[i]<-t.test(x = OP,y = Tem)$p.value}
-    else if( test=="Wtest"){pval[i]<-wilcox.test(OP ,Tem,exact = F)$p.value } 
+    FC[i]<-mlev1[i]/mlev2[i]
+    if( test=="Ttest"){pval[i]<-t.test(x = lev1,y = lev2)$p.value}
+    else if( test=="Wtest"){pval[i]<-wilcox.test(lev1 ,lev2,exact = F)$p.value } 
   } 
   if (adjustpval==T){pval<-p.adjust(pval, method = "BH")}
   logFC<-log2(FC)
   pval[which(is.na(pval))]<-1
-  listgen<-data.frame("nom"=colnames(toto),"pval"=pval,"FC"=FC,"logFC"=logFC,"mOP"=mOP,"mTem"=mTem)
-
+  listgen<-data.frame(colnames(toto),pval,FC,logFC,mlev1,mlev2)
+  colnames(listgen)<-c("nom","pval","FC","logFC",levels(x)[1],levels(x)[2])
   return(listgen)
 }
 conditiontest<-function(toto,shaptest=T,Ftest=T,threshold=0.05){
   x<-toto[,1]
   toto<-toto[,-1]
   pvalF<-vector()
-  pvalnormTem<-vector()
-  pvalnormOP<-vector()
-  #colnames(pvalS)<-c("Tem","OP")
-  vTem<-vector()
-  vOP<-vector()
+  pvalnormlev1<-vector()
+  pvalnormlev2<-vector()
+  vlev1<-vector()
+  vlev2<-vector()
   samplenorm<-vector()
   varequal<-vector()
   conditiontest<-data.frame("name"=colnames(toto))
   for (i in 1:ncol(toto) ){
-    OP<-toto[which(x=="OP"),i]
-    Tem<-toto[which(x=="Tem"),i]
+    lev1<-toto[which(x==levels(x)[1]),i]
+    lev2<-toto[which(x==levels(x)[2]),i]
     if(shaptest){
       #pvalnormTem[i]<-shapiro.test(Tem)$p.value
       
-      out<- tryCatch(shapiro.test(Tem)$p.value, error = function(e) e)
-      if(any(class(out)=="error"))pvalnormTem[i]<-1
-      else{pvalnormTem[i]<-out}
+      out<- tryCatch(shapiro.test(lev1)$p.value, error = function(e) e)
+      if(any(class(out)=="error"))pvalnormlev1[i]<-1
+      else{pvalnormlev1[i]<-out}
       
-      out<- tryCatch(shapiro.test(OP)$p.value, error = function(e) e)
-      if(any(class(out)=="error"))pvalnormOP[i]<-1
-      else{pvalnormOP[i]<-out}
+      out<- tryCatch(shapiro.test(lev2)$p.value, error = function(e) e)
+      if(any(class(out)=="error"))pvalnormlev2[i]<-1
+      else{pvalnormlev2[i]<-out}
       
-      if((pvalnormTem[i]>=threshold) & (pvalnormOP[i]>=threshold)){samplenorm[i]<-"norm"}
+      if((pvalnormlev2[i]>=threshold) & (pvalnormlev1[i]>=threshold)){samplenorm[i]<-"norm"}
       else{samplenorm[i]<-"notnorm"}
     }
     if(Ftest){
       #to perform a fisher test the value have to be normal
-      pvalF[i]<-var.test(OP,Tem)$p.value
+      pvalF[i]<-var.test(lev1,lev2)$p.value
       if(is.na(pvalF[i]))pvalF[i]<-1
-      vTem[i]<-var(Tem)
-      vOP[i]<-var(OP)
+      vlev1[i]<-var(lev1)
+      vlev2[i]<-var(lev2)
       if(pvalF[i]>=threshold){varequal[i]<-"varequal"}
       else{varequal[i]<-"varnotequal"}
     }
   }
-  if(shaptest){conditiontest<-data.frame(conditiontest,"pvalnormTem"=pvalnormTem,"pvalnormOP"=pvalnormOP,"samplenorm"=samplenorm)}
-  if(Ftest){conditiontest<-data.frame(conditiontest,"pvalF"=pvalF,"varianceTem"=vTem,"varianceOP"=vOP,"varequal"=varequal)}
+  if(shaptest){conditiontest<-data.frame(conditiontest,"pvalnormlev1"=pvalnormlev1,"pvalnormlev2"=pvalnormlev2,"samplenorm"=samplenorm)}
+  if(Ftest){conditiontest<-data.frame(conditiontest,"pvalF"=pvalF,"variancelev1"=vlev1,"variancelev2"=vlev2,"varequal"=varequal)}
   return(conditiontest) 
 } 
 
@@ -504,12 +507,14 @@ volcanoplot<-function(toto,thresholdFC=1,thresholdpv=0.05,graph=T,maintitle="Vol
 
 barplottest<-function(restest,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="Intensity Mean for differentially expressed metabolit"){
   meta<-rep(restest[,1],each=2)
-  categ<-rep(c("OP","Tem"),times=(nrow(restest)))
+  lev1<-colnames(restest)[5]
+  lev2<-colnames(restest)[6]
+  categ<-rep(c(lev1,lev2),times=(nrow(restest)))
   pval<-rep((restest$pval< thresholdpv),each=2)
   logFC<-rep((abs(restest$logFC)> thresholdFC),each=2) 
   moy<-vector() 
-  moy[seq(from=1,to=length(meta),by = 2)]<-restest$mOP
-  moy[seq(from=2,to=length(meta),by = 2)]<-restest$mTem
+  moy[seq(from=1,to=length(meta),by = 2)]<-restest[,5]
+  moy[seq(from=2,to=length(meta),by = 2)]<-restest[,6]
   data<-data.frame(meta,categ,pval,logFC,moy)
   data<-data[order(data$pval),]
   if(!graph){return(data[(which(data$pval==TRUE)& (data$logFC==TRUE)),])}
@@ -673,8 +678,8 @@ bestmodel<-function(tabdecouv,tabval,parameters){
 
   tabselect<-selectprctNA(toto = tabdecouv,prctNA = parameters$prctNA,group=as.logical(parameters$NAgroup),restrictif =as.logical(parameters$restrict))
   if(parameters$NAstructure){
-    tabNAstructure<<-replaceproptestNA(toto = tabdecouv,threshold = parameters$thresholdNAstructure ,rempNA ="moygr",
-                                     maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T)
+    tabNAstructure<<-as.data.frame(replaceproptestNA(toto = tabdecouv,threshold = parameters$thresholdNAstructure ,rempNA ="moygr",
+                                     maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T))
     tabselect<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
     
   }
@@ -720,7 +725,7 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
   if (model=="randomforest"){
     set.seed(20011203)
     resmodel <- randomForest(tabdiff[,-1],tabdiff[,1],ntree=500,
-                             sampsize=40,nodesize=2,importance=T,keep.forest=T)
+                             importance=T,keep.forest=T)
   }   
   if(model=="svm"){
     resmodel<- best.tune(svm,class ~ ., data = tabdiff )
@@ -817,3 +822,4 @@ densityscore<-function(score,scorepredict,maintitle="Density learning's score an
                       values=c(alpha("blue",alpha = 0.1),alpha("red",alpha = 0.5)),
                       labels=c("negativ","positiv"))+guides(colour = guide_legend(override.aes = list(alpha = 0.5)))
 }
+
