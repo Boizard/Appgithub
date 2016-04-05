@@ -134,7 +134,6 @@ replaceproptestNA<-function(toto,threshold=0.05,rempNA,maxvaluesgroupmin=100,min
   }
   }
   else{return(NULL)}
-  print("pas nul")
   totopropselect<-as.data.frame(totopropselect[, order(resp[,2])])
   colnames(totopropselect)<-resp$names[order(resp[,2])]
   return(totopropselect)
@@ -144,7 +143,6 @@ replaceNA<-function(toto,rempNA="z",pos=T,NAstructure=F,thresholdstruct=0.05,max
   #rempNA: remplace Non ATtributes values by zero("z"), the mean of the colum (moy), 
   # the mean in each group define by the factor of the first column(moygr), itarative pca (pca), or keep th NA
   if(NAstructure){
-    print("NAstructure")
     totoNAstruct<-replaceproptestNA(toto = toto,threshold = thresholdstruct ,rempNA =rempNA,maxvaluesgroupmin,minvaluesgroupmax)
     toto[,colnames(totoNAstruct)]<-totoNAstruct
   }
@@ -438,7 +436,9 @@ diffexptest<-function(toto,test="Wtest",adjustpval=F){
     if( test=="Ttest"){pval[i]<-t.test(x = lev1,y = lev2)$p.value}
     else if( test=="Wtest"){pval[i]<-wilcox.test(lev1 ,lev2,exact = F)$p.value } 
   } 
-  if (adjustpval==T){pval<-p.adjust(pval, method = "BH")}
+  print(paste("adjust",adjustpval==T))
+  if (adjustpval==T){ print("loopapv")
+    pval<-p.adjust(pval, method = "BH")}
   logFC<-log2(FC)
   pval[which(is.na(pval))]<-1
   listgen<-data.frame(colnames(toto),pval,FC,logFC,mlev1,mlev2)
@@ -676,29 +676,30 @@ errorplot<-function(text=paste("error /n","text error")){
 
 bestmodel<-function(tabdecouv,tabval,parameters){
   tabselect<-selectprctNA(toto = tabdecouv,prctNA = parameters$prctNA,group=as.logical(parameters$NAgroup),restrictif =as.logical(parameters$restrict))
-  if(parameters$NAstructure){
+  nbselect<-ncol(tabselect)-1
+  
+  if(parameters$NAstructure==TRUE){
     tabNAstructure<<-as.data.frame(replaceproptestNA(toto = tabdecouv,threshold = parameters$thresholdNAstructure ,rempNA ="moygr",
                                      maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T))
     if(!is.null(tabNAstructure)){##
     tabselect1<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
     colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]
-    ##
     tabselect<-tabselect1}
   }
-  if(parameters$log) { 
+  if(parameters$log==TRUE) {
     tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
   tabselectssNA<-replaceNA(toto=tabselect,rempNA=parameters$rempNA,pos=T,NAstructure = as.logical(parameters$NAstructure),
                            threshold=parameters$thresholdNAstructure,maxvaluesgroupmin=parameters$maxvaluesgroupmin,
                            minvaluesgroupmax=parameters$minvaluesgroupmax)
-
-  tabdiff<-testdiff(tabselectssNA,parameters$test,as.logical(parameters$adjustpval),parameters$thresholdpv,parameters$thresholdFC)
-  nbdiff<-as.integer(dim(tabdiff)[2]-1)
+  tabdiff<-testdiff(tabselectssNA = tabselectssNA,test = parameters$test,adjustpval = as.logical(parameters$adjustpval),
+                    thresholdpv = parameters$thresholdpv,thresholdFC = parameters$thresholdFC)
+  nbdiff<-as.integer(ncol(tabdiff)-1)
   if(nbdiff==0){auc<-0}
   else{ 
     auc<-modelisation(tabdiff = tabdiff,tabval = tabval,
                       model = as.character(parameters$model),rempNA = as.character(parameters$rempNA),log=parameters$log,varstructure=parameters$varstructure)
-  }
-  res<-c(nbdiff,auc)
+    }
+  res<-c(nbselect,nbdiff,auc)
   return(res)
 }
 
@@ -737,15 +738,15 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
   
   tabvaldiff<<-tabval[,which(colnames(tabval)%in%colnames(tabdiff))]
   if(rempNA=="moygr"){rempNA<-"moy" }
-  if(log) {tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
+  if(log==TRUE) {tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
   if(!is.null(varstructure)){
     tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
 
   }
-
+  
   tabvaldiffssNA<-replaceNA(toto = tabvaldiff,rempNA =rempNA,pos =T ,NAstructure = F)
   #prediction a partir du model
-  validation<-tabvaldiffssNA[,-1]
+  validation<-tabvaldiffssNA[,-1] 
   if(model=="randomforest"){
     scoreval <<-predict(object=resmodel,type="prob",newdata = validation)[,2]
     predval<-predict(object=resmodel,type="response",newdata = validation)
@@ -755,7 +756,7 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
     predvalf<-predict(resmodel,newdata =validation,decision.values=T)
     scoreval <<-attr(predvalf,"decision.values")
   }
-  auc<-auc(roc(tabvaldiffssNA[,1], scoreval))
+  auc<-auc(roc(tabvaldiffssNA[,1], as.numeric(scoreval)))
 
   if(is.na(auc))auc<-0
   return(auc)

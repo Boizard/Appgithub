@@ -4,7 +4,7 @@ source("global.R")
 tablearn<<-data.frame()    
 tabval<<-data.frame()
 lev<<-vector()
-tabdiff<<-data.frame()
+#tabdiff<<-data.frame()
 testdiffdata<<-data.frame()
 shinyServer(function(input, output,session) {    
 
@@ -415,15 +415,14 @@ shinyServer(function(input, output,session) {
 
     if (input$adjustval){
     #Validation
-        learning2<<-learning
         tabval<-DATA()$VALIDATION
         tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(learning))]
         if(input$log) { 
           tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
         #NAstructure if NA ->0
         if(input$NAstructure){
-        varstructure<<-colnames(NASTRUCT()$NAstructure)
-        print(varstructure)
+        varstructure<-colnames(NASTRUCT()$NAstructure)
+        #print(varstructure)
         tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
         }
         #merge learning tabvaldiff
@@ -478,7 +477,7 @@ shinyServer(function(input, output,session) {
     listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"log"=input$log,
                           "rempNA"=input$rempNA,"NAstructure"=input$NAstructure,"test"=input$test,"adjustpval"=input$adjustpv,
                           "thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC,"model"=input$model)
-    res<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
+    res<<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
     }
   })
 
@@ -638,7 +637,6 @@ tabparameters <- eventReactive(input$tunetest, {
                        "rempNA"=input$rempNAtest,"NAstructure"=input$NAstructuretest,"thresholdNAstructure"=input$thresholdNAstructuretest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
                        "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"test"=input$testtest,"adjustpval"=input$adjustpvaltest,
                        "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"model"=input$modeltest)
-  
   if( sum(do.call(rbind, lapply(listparameters, FUN=function(x){as.numeric(is.null(x))})))>0){resparameters="One of the parameters is empty"}
   else{
   resparameters<-constructparameters(listparameters)
@@ -646,18 +644,18 @@ tabparameters <- eventReactive(input$tunetest, {
   #resparameters<-resparameters[-which((resparameters$rempNA=="z")&(resparameters$mixt==T)),]
   }
   resparameters<<-classparameters(resparameters)
+
   learning<<-DATA()$LEARNING
   validation<<-DATA()$VALIDATION
-  resmodel<-matrix(ncol=2,nrow=nrow(resparameters))
-  colnames(resmodel)=c("nbdiff","auc")
-  print(nrow(resparameters))
-  
+  resmodel<-matrix(ncol=3,nrow=nrow(resparameters))
+  colnames(resmodel)=c("nbselect","nbdiff","auc")
   for (i in 1:nrow(resparameters)){
     print(i)
     resmodel[i,]<-bestmodel(tabdecouv = learning ,tabval = validation ,parameters=resparameters[i,] )
   }
-  resparameters<-cbind(resparameters,resmodel)
 
+  resparameters<-cbind(resparameters,resmodel)
+  
   })
 output$testparameters<-renderDataTable({
   resparameters<-tabparameters()
