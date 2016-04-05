@@ -44,7 +44,6 @@ shinyUI(fluidPage(
                             checkboxInput("transpose","Transpose the table",FALSE),
                             checkboxInput("zeroegalNA","consider 0 as NA",FALSE)
                         ,
-                            
                         actionButton("confirmdatabutton","Confirm data")
        ),
        

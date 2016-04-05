@@ -400,7 +400,7 @@ mdsplot<-function(toto,ggplot=T,maintitle="MDS representation of the individuals
   fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
   x <- fit$points[,1]
   y <- fit$points[,2] 
-  coord<-(data.frame("class"=tabselect[,1],x,y))
+  coord<-(data.frame("class"=class,x,y))
   if(!graph){return(coord)}
   if(!ggplot){
     colr<-c("red","blue")
@@ -675,13 +675,15 @@ errorplot<-function(text=paste("error /n","text error")){
   text(x = 0.5, y = 0.5, text,cex = 1.6, col = "black")}
 
 bestmodel<-function(tabdecouv,tabval,parameters){
-
   tabselect<-selectprctNA(toto = tabdecouv,prctNA = parameters$prctNA,group=as.logical(parameters$NAgroup),restrictif =as.logical(parameters$restrict))
   if(parameters$NAstructure){
     tabNAstructure<<-as.data.frame(replaceproptestNA(toto = tabdecouv,threshold = parameters$thresholdNAstructure ,rempNA ="moygr",
                                      maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T))
-    tabselect<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
-    
+    if(!is.null(tabNAstructure)){##
+    tabselect1<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
+    colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]
+    ##
+    tabselect<-tabselect1}
   }
   if(parameters$log) { 
     tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
@@ -737,8 +739,8 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
   if(rempNA=="moygr"){rempNA<-"moy" }
   if(log) {tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
   if(!is.null(varstructure)){
-      for (i in 1:length(varstructure)){
-        tabvaldiff[is.na(tabvaldiff[,varstructure[i]]),varstructure[i]]<-0 }
+    tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
+
   }
 
   tabvaldiffssNA<-replaceNA(toto = tabvaldiff,rempNA =rempNA,pos =T ,NAstructure = F)

@@ -126,7 +126,7 @@ shinyServer(function(input, output,session) {
   SELECTDATA<-reactive({
   tabdecouv<-DATA()$LEARNING
   restrict<-as.logical(input$restrict)
-  tabselect<<-selectprctNA(tabdecouv,input$prctNA,group=input$NAgroup,restrictif =restrict)
+  tabselect<-selectprctNA(tabdecouv,input$prctNA,group=input$NAgroup,restrictif =restrict)
 
   })
 #####
@@ -187,7 +187,7 @@ shinyServer(function(input, output,session) {
     if(input$structdata=="alldata"){tabdecouv<-DATA()$LEARNING}
     if(input$structdata=="selecteddata"){tabdecouv<-SELECTDATA()}
 
-    NAstructuressNA<<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
+    NAstructuressNA<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
                               maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero = T)
     NAstructure<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
                               maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero=F)
@@ -220,10 +220,10 @@ shinyServer(function(input, output,session) {
   )
 #####  
   TRANSFORMDATA<-reactive({
-    tabselect<<-SELECTDATA()
+    tabselect<-SELECTDATA()
     numcol<-ncol(tabselect)
     if(input$NAstructure){
-      NAstructure<<-NASTRUCT()$NAstructuressNA
+      NAstructure<-NASTRUCT()$NAstructuressNA
       if(!is.null(NAstructure)){
       tabselect1<-cbind(tabselect,NAstructure[,!colnames(NAstructure)%in%colnames(tabselect)])
       colnames(tabselect1)[(numcol+1):ncol(tabselect1)]<-colnames(NAstructure)[!colnames(NAstructure)%in%colnames(tabselect)]
@@ -262,7 +262,7 @@ shinyServer(function(input, output,session) {
   )
   
   output$plotmds<-renderPlot({
-    selectdata<-TRANSFORMDATA()
+    selectdata<<-TRANSFORMDATA()
     mdsplot(toto = selectdata,ggplot=T)
   })
   output$downloadplotmds = downloadHandler(
@@ -282,18 +282,18 @@ shinyServer(function(input, output,session) {
   )
 #####
   TEST<-reactive({
-    tabselectssNA<<-TRANSFORMDATA()
+    tabselectssNA<-TRANSFORMDATA()
     #condition tests
     if (input$SFtest){
       datatesthypothesis<-conditiontest(tabselectssNA,shaptest=T,Ftest=T,threshold=0.05)
     }
     else{datatesthypothesis<-data.frame()}
     #diff test
-    if(input$test=="notest"){tabdiff<-tabselectssNA}
+    if(input$test=="notest"){tabdiff<<-tabselectssNA}
     else{
         datatest<-diffexptest(toto = tabselectssNA,test = input$test ,adjustpval=input$adjustpv)
     #differential expressed          
-        datatestdiff<<-datatest[which( (datatest$pval<input$thresholdpv)&(abs(datatest$logFC)>input$thresholdFC )),]
+        datatestdiff<-datatest[which( (datatest$pval<input$thresholdpv)&(abs(datatest$logFC)>input$thresholdFC )),]
         if(dim(datatestdiff)[1]==0){
             print("no differentially expressed variables")
             tabdiff<<-data.frame()
@@ -333,8 +333,8 @@ shinyServer(function(input, output,session) {
                                     thresholdpv = (input$thresholdpv ),graph=F ), file) })
   
   output$plottest2 <- renderPlot({
-    tabdiff<<-TEST()$tabdiff
-    testdiffdata<<-TEST()$testdiffdata
+    tabdiff<-TEST()$tabdiff
+    testdiffdata<-TEST()$testdiffdata
     if(nrow(tabdiff)!=0){barplottest(restest = testdiffdata,thresholdpv=input$thresholdpv,thresholdFC=input$thresholdFC)}
     else{errorplot(text = " No differently expressed ")}
     
@@ -372,7 +372,7 @@ shinyServer(function(input, output,session) {
       
       lev<-levels(x = learning[,1])
       names(lev)<-c("positif","negatif")
-      
+
     #Build model
         if (input$model=="randomforest"){
             set.seed(20011203)
@@ -388,11 +388,11 @@ shinyServer(function(input, output,session) {
             #predictclassdecouv==model$predicted
             
     }   
-    
+
         if(input$model=="svm"){
             colnames(learning)[1]<-"class"
             model <- best.tune(svm,class ~ ., data = learning )     
-            scoredecouv <<-model$decision.values
+            scoredecouv <-model$decision.values
             if(sum(lev==(strsplit(colnames(scoredecouv),split = "/")[[1]]))==0){
               scoredecouv<-scoredecouv*(-1)
               colnames(scoredecouv)<-paste(lev[1],"/",lev[2],sep="")
@@ -408,33 +408,32 @@ shinyServer(function(input, output,session) {
             }
       #levels(predictclassval)<-paste("test",levels(predictclassdecouv),sep="")
     levels(predictclassdecouv)<-paste("test",lev,sep="")
-    classdecouv<<-learning[,1]
+    classdecouv<-learning[,1]
     resmodeldecouv<-data.frame(classdecouv,scoredecouv,predictclassdecouv)
     colnames(resmodeldecouv) <-c("classdecouv","scoredecouv","predictclassdecouv") 
     decouverte<-list("decouvdiff"=learning,"resmodeldecouv"=resmodeldecouv)
-    
+
     if (input$adjustval){
     #Validation
+        learning2<<-learning
         tabval<-DATA()$VALIDATION
-        tabvaldiff<<-tabval[,which(colnames(tabval)%in%colnames(learning))]
+        tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(learning))]
         if(input$log) { 
           tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
         #NAstructure if NA ->0
         if(input$NAstructure){
         varstructure<<-colnames(NASTRUCT()$NAstructure)
         print(varstructure)
-        for (i in 1:length(varstructure)){
-          tabvaldiff[is.na(tabvaldiff[,varstructure[i]]),varstructure[i]]<-0 }
+        tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
         }
-        print("rt")
         #merge learning tabvaldiff
         alldata<-rbind(tabvaldiff,learning)
         if(input$rempNA=="moygr"){ 
             print("impossible de remplacer les NA par la moy par group pour la validation")
-          tabvaldiffssNA<<-replaceNA(toto = alldata,rempNA ="moy")        }
+          tabvaldiffssNA<-replaceNA(toto = alldata,rempNA ="moy")        }
         
-        else{tabvaldiffssNA<<-replaceNA(toto = alldata,rempNA =input$rempNA)}
-        
+        else{tabvaldiffssNA<-replaceNA(toto = alldata,rempNA =input$rempNA)}
+
     #prediction a partir du model
     validation<-tabvaldiffssNA[1:nrow(tabvaldiff),-1]
     if(input$model=="randomforest"){
@@ -457,6 +456,7 @@ shinyServer(function(input, output,session) {
       predictclassval<-as.factor(predictclassval)
  
     }
+
     if(sum(lev==(levels(predictclassval)))==0){
       predictclassval<-factor(predictclassval,levels = rev(levels(predictclassval)),ordered = TRUE)
     }
@@ -468,17 +468,17 @@ shinyServer(function(input, output,session) {
     levels(predictclassval)<-paste("test",lev,sep="")
     resmodelvalidation<-data.frame(classval,scoreval,predictclassval)
     colnames(resmodelvalidation) <-c("classval","scoreval","predictclassval") 
-    auc<-auc(roc (classval, scoreval))
+    auc<-auc(roc(classval, scoreval))
     validation<-list("validationdiff"=validation,"resmodelvalidation"=resmodelvalidation,"auc"=auc)
-    
+
     }
     else{
       validation<-list()
     }
-    listparameters<<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"log"=input$log,
+    listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"log"=input$log,
                           "rempNA"=input$rempNA,"NAstructure"=input$NAstructure,"test"=input$test,"adjustpval"=input$adjustpv,
                           "thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC,"model"=input$model)
-    res<<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
+    res<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
     }
   })
 
@@ -503,7 +503,7 @@ shinyServer(function(input, output,session) {
   
   
   output$plotmodeldecouvroc <- renderPlot({
-    res<<-MODEL()
+    res<-MODEL()
     ROCcurve(validation = res$decouverte$resmodeldecouv$classdecouv,decisionvalues = res$decouverte$resmodeldecouv$scoredecouv)
   })
   
@@ -634,7 +634,7 @@ output$plotimportance<-renderPlot({
 #####
 tabparameters <- eventReactive(input$tunetest, { 
   prctNA<-seq(input$prctNAtest[1],input$prctNAtest[2],by = 10)
-  listparameters<<-list("prctNA"=prctNA,"NAgroup"=input$NAgrouptest,"restrict"=input$restricttest,"log"=input$logtest,
+  listparameters<-list("prctNA"=prctNA,"NAgroup"=input$NAgrouptest,"restrict"=input$restricttest,"log"=input$logtest,
                        "rempNA"=input$rempNAtest,"NAstructure"=input$NAstructuretest,"thresholdNAstructure"=input$thresholdNAstructuretest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
                        "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"test"=input$testtest,"adjustpval"=input$adjustpvaltest,
                        "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"model"=input$modeltest)
@@ -689,10 +689,10 @@ PREDICT<-reactive({
     
     if(input$confirmdatabuttonpred==0){
       datapath<- input$predictionfile$datapath
-      tabprediction<<-importfile(datapath = datapath,extension = input$filetypepred,
+      tabprediction<-importfile(datapath = datapath,extension = input$filetypepred,
                             NAstring=input$NAstringpred,sheet=input$sheetnpred,skiplines=input$skipnpred,dec=input$decpred,sep=input$seppred)
       if(input$changedata){
-        tabprediction<<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
+        tabprediction<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
                                  transpose=input$transposepred,zeroegalNA=input$zeroegalNApred)
       }
       resprediction<-data.frame()
@@ -748,7 +748,7 @@ PREDICT<-reactive({
     if(sum(lev==(levels(predictclass)))==0){
       predictclass<-factor(predictclass,levels = rev(levels(predictclass)),ordered = TRUE)
     }
-    resprediction<<-data.frame("score"=score,"predictclass"=predictclass)
+    resprediction<-data.frame("score"=score,"predictclass"=predictclass)
 
     colnames(resprediction)<-c("score","predictclass")
     }
@@ -760,7 +760,7 @@ PREDICT<-reactive({
  
 #####
 output$JDDpredict=renderDataTable({
-  respredict<<-PREDICT()
+  respredict<-PREDICT()
   predict<-PREDICT()$tab
   colmin<-min(ncol(predict),100)
   rowmin<-min(nrow(predict),100)
