@@ -25,7 +25,8 @@ usePackage("reshape2")#melt function
 usePackage("xlsx")#import fichier xls#Fonctions
 usePackage("randomForest")
 usePackage("missForest")
-
+usePackage("Hmisc")
+usePackage("corrplot")
 
 ##########################
 importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec=".",sep=","){
@@ -151,7 +152,7 @@ replaceNA<-function(toto,rempNA="z",pos=T,NAstructure=F,thresholdstruct=0.05,max
   cnames<-colnames(toto)
   class<-(toto[,1])
   cat<-levels(class)
-  toto<-as.data.frame(toto[,-1])
+  toto<-as.data.frame(toto[,-1],optional = T)
   #toto<-apply(toto,MARGIN = 2,function(x)as.numeric(x))
   n<-ncol(toto) 
   #par default je remplace les NA par 0
@@ -188,6 +189,7 @@ replaceNA<-function(toto,rempNA="z",pos=T,NAstructure=F,thresholdstruct=0.05,max
   
   toto<-cbind(class,toto)
   toto[which(is.na(toto),arr.ind = T)]<-0
+  
   colnames(toto)<-cnames
   
   return(toto)
@@ -340,7 +342,6 @@ heatmapNA<-function(toto,maintitle="Distribution of NA",names=NULL,graph=T){
   tabm<-tabm[-c(1:nrow(toto)),]
   colnames(tabm)<-c("individual","variables","value")
   if(ncol(toto)>60){
-    #geom_tile(aes(fill = value), colour = "white") 
     ggplot(tabm, aes(variables, individual)) + geom_tile(aes(fill = value)) + scale_fill_manual(values=c("lightgrey","steelblue"))+ 
       ggtitle("Distribution of NA") + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
   }
@@ -436,8 +437,7 @@ diffexptest<-function(toto,test="Wtest",adjustpval=F){
     if( test=="Ttest"){pval[i]<-t.test(x = lev1,y = lev2)$p.value}
     else if( test=="Wtest"){pval[i]<-wilcox.test(lev1 ,lev2,exact = F)$p.value } 
   } 
-  print(paste("adjust",adjustpval==T))
-  if (adjustpval==T){ print("loopapv")
+  if (adjustpval==T){ 
     pval<-p.adjust(pval, method = "BH")}
   logFC<-log2(FC)
   pval[which(is.na(pval))]<-1
@@ -505,7 +505,7 @@ volcanoplot<-function(toto,thresholdFC=1,thresholdpv=0.05,graph=T,maintitle="Vol
   g
 } 
 
-barplottest<-function(restest,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="Intensity Mean for differentially expressed metabolit"){
+barplottest<-function(restest,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="Mean by group for differentially expressed metabolit"){
   meta<-rep(restest[,1],each=2)
   lev1<-colnames(restest)[5]
   lev2<-colnames(restest)[6]
@@ -539,9 +539,9 @@ gg_color_hue <- function(n) {
   hcl(h=hues, l=65, c=100)[1:n]
 }
 
-plot_pred_type_distribution <- function(class,pred, threshold,maintitle="Score representation",graph=T) {
-  df<-data.frame(class,pred)
-  colnames(df)<-c("class","pred")
+plot_pred_type_distribution <- function(class,pred,names, threshold,maintitle="Score representation",graph=T) {
+  df<-data.frame(names,class,pred)
+  colnames(df)<-c("names","class","pred")
   v <-rep(NA, nrow(df))
   v <- ifelse(df$pred >= threshold & df$class == levels(class)[1], "TruePositiv", v)
   v <- ifelse(df$pred >= threshold & df$class == levels(class)[2], "FalsePositiv", v)
@@ -560,8 +560,8 @@ plot_pred_type_distribution <- function(class,pred, threshold,maintitle="Score r
 }
 
 
-boxplotggplot<-function(class,score,maintitle="svm score's Boxplot ",graph=T){
-  data<-data.frame("class"= class,"score"=as.vector(score))
+boxplotggplot<-function(class,score,names,maintitle="svm score's Boxplot ",graph=T){
+  data<-data.frame("names"=names,"class"= class,"score"=as.vector(score))
   if(!graph){return(data)}
   p<-ggplot(data, aes(x=class, y=score, fill=class)) +
     geom_boxplot()+
@@ -570,13 +570,13 @@ boxplotggplot<-function(class,score,maintitle="svm score's Boxplot ",graph=T){
   p
 }
 
-scoremodelplot<-function(class,score,threshold,type,graph){
+scoremodelplot<-function(class,score,names,threshold,type,graph){
     if(type=="boxplot"){
-          boxplotggplot(class =class,score =score,
+          boxplotggplot(class =class,score =score,names=names,
                         graph = graph)
     }
     else if(type=="points"){
-          plot_pred_type_distribution(class = class, pred = score,threshold=threshold,graph=graph )
+          plot_pred_type_distribution(class = class, pred = score,names=names,threshold=threshold,graph=graph )
     } 
 }
 
@@ -627,7 +627,7 @@ barplottestcond<-function(toto){
   data<-as.factor(rescond)
   p<-qplot(factor(data), geom="bar", fill=factor(data))
   p+ggtitle("Repartition of the variables according to the test results")+
-    theme(plot.title=element_text(size=20))
+    theme(plot.title=element_text(size=15))
 }
 
 showsingledata<-function(toto,namevar,title=" "){
@@ -683,7 +683,8 @@ bestmodel<-function(tabdecouv,tabval,parameters){
                                      maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T))
     if(!is.null(tabNAstructure)){##
     tabselect1<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
-    colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]
+    if(sum(!colnames(tabNAstructure)%in%colnames(tabselect))!=0){
+      colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]}
     tabselect<-tabselect1}
   }
   if(parameters$log==TRUE) {
@@ -694,10 +695,12 @@ bestmodel<-function(tabdecouv,tabval,parameters){
   tabdiff<-testdiff(tabselectssNA = tabselectssNA,test = parameters$test,adjustpval = as.logical(parameters$adjustpval),
                     thresholdpv = parameters$thresholdpv,thresholdFC = parameters$thresholdFC)
   nbdiff<-as.integer(ncol(tabdiff)-1)
-  if(nbdiff==0){auc<-0}
+  if(nbdiff<=0){auc<-0
+  nbdiff<-0}
   else{ 
+    varstructure<-colnames(tabNAstructure)
     auc<-modelisation(tabdiff = tabdiff,tabval = tabval,
-                      model = as.character(parameters$model),rempNA = as.character(parameters$rempNA),log=parameters$log,varstructure=parameters$varstructure)
+                      model = as.character(parameters$model),rempNA = as.character(parameters$rempNA),log=parameters$log,varstructure=varstructure)
     }
   res<-c(nbselect,nbdiff,auc)
   return(res)
@@ -727,7 +730,9 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
 
   if (model=="randomforest"){
     set.seed(20011203)
-    resmodel <- randomForest(tabdiff[,-1],tabdiff[,1],ntree=500,
+    tab<-as.data.frame(tabdiff[,-1])
+    colnames(tab)<-colnames(tabdiff)[-1]
+    resmodel <- randomForest(tab,tabdiff[,1],ntree=500,
                              importance=T,keep.forest=T)
   }   
   if(model=="svm"){
@@ -736,19 +741,20 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
   }
   #Validation
   
-  tabvaldiff<<-tabval[,which(colnames(tabval)%in%colnames(tabdiff))]
+  tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(tabdiff))]
   if(rempNA=="moygr"){rempNA<-"moy" }
   if(log==TRUE) {tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
   if(!is.null(varstructure)){
     tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
-
-  }
+    }
+  alldata<-rbind(tabvaldiff,tabdiff)
   
-  tabvaldiffssNA<-replaceNA(toto = tabvaldiff,rempNA =rempNA,pos =T ,NAstructure = F)
+  tabvaldiffssNA<-replaceNA(toto = alldata,rempNA =rempNA,pos =T ,NAstructure = F)
   #prediction a partir du model
-  validation<-tabvaldiffssNA[,-1] 
+  validation<-tabvaldiffssNA[1:nrow(tabvaldiff),-1]
+  colnames(validation)<-colnames(tabvaldiff )[-1]
   if(model=="randomforest"){
-    scoreval <<-predict(object=resmodel,type="prob",newdata = validation)[,2]
+    scoreval <-predict(object=resmodel,type="prob",newdata = validation)[,2]
     predval<-predict(object=resmodel,type="response",newdata = validation)
   }
 
@@ -756,7 +762,8 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,varstructure=NULL){
     predvalf<-predict(resmodel,newdata =validation,decision.values=T)
     scoreval <<-attr(predvalf,"decision.values")
   }
-  auc<-auc(roc(tabvaldiffssNA[,1], as.numeric(scoreval)))
+  #print(data.frame(rownames(tabvaldiffssNA),scoreval))
+  auc<-auc(roc(tabvaldiff[,1], as.numeric(scoreval)))
 
   if(is.na(auc))auc<-0
   return(auc)
@@ -796,7 +803,27 @@ classparameters<-function(resparameters){
   
 }
 
-
+correlogrammapp<-function(toto,maintitle="Correlogramm",graph=T){
+  
+  data<-calculcorr(toto)
+  if (!graph){return(data)}
+  rownames(data$correlation)<-substring(rownames(data$correlation),1,4)
+  colnames(data$correlation)<-substring( colnames(data$correlation),1,4)
+  rownames(data$pvalue)<-substring(rownames(data$pvalue),1,4)
+  colnames(data$pvalue)<-substring( colnames(data$pvalue),1,4)
+  correlation<-corrplot(data$correlation,order = "hclust" ,hclust.method="ward",
+                        p.mat = data$pvalue, sig.level = 0.01, insig = "blank",title =maintitle ,mar=c(1,0,2,0))
+}
+calculcorr<-function(toto){
+  data<-rcorr(as.matrix(toto),type = "spearman") 
+  correlation<-data$r
+  correlation[which(is.na((correlation)),arr.ind = T)]<-0
+  #Test de significaticité de la corrélation
+  testcorrelation<-data$P 
+  testcorrelation[which(is.na((testcorrelation)),arr.ind = T)]<-1
+  diag(testcorrelation)<-NA
+  return(list("correlation"=correlation,"pvalue"=testcorrelation))
+}
 palet<-function(pred){
   col<-sort(unique(as.character(pred)))
   col[which(col=="FalseNegativ")]<-"#C77CFF"

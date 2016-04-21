@@ -14,7 +14,9 @@ shinyUI(fluidPage(
               
               conditionalPanel(condition ="input.confirmdatabutton==0" ,
                                
-                        fluidRow( column(12,fileInput("learningfile", label = h4("learning File"),
+                        fluidRow( column(12,conditionalPanel(condition ="input.help",
+                                                             helpText("Learning file is obligatory to continue")),
+                                         fileInput("learningfile", label = h4("learning File"),
                                                      accept =  c("text/csv","application/vnd.ms-excel",
                                                                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",".xls",".xlsx")) ),
                             column(12,fileInput("validationfile", label = h4("validation File "),
@@ -44,7 +46,9 @@ shinyUI(fluidPage(
                             checkboxInput("transpose","Transpose the table",FALSE),
                             checkboxInput("zeroegalNA","consider 0 as NA",FALSE)
                         ,
-                        actionButton("confirmdatabutton","Confirm data")
+                        actionButton("confirmdatabutton","Confirm data"),
+                        conditionalPanel(condition ="input.help",
+                                         helpText("Data have to be confirm to continue"))
        ),
        
        conditionalPanel(condition ="input.confirmdatabutton!=0",
@@ -66,23 +70,24 @@ shinyUI(fluidPage(
           radioButtons("paramdownplot","Download images as : ",
                        choices=list("png"="png","jpg"="jpg","pdf"="pdf"),selected="png"),
           radioButtons("paramdowntable","Download datasets as : ",
-                       choices=list("csv"="csv","xlsx"="xlsx"),selected="csv"),
-          hr(),
-          checkboxInput("help","show help",FALSE)
-          
-          
-      )
+                       choices=list("csv"="csv","xlsx"="xlsx"),selected="csv")
+      ),
+      hr(),
+      checkboxInput("help","show help",FALSE)
       ),width=3      
       ) ,
 
         mainPanel(
             conditionalPanel(condition ="!output.fileUploaded",
-                       imageOutput("image1", height = 300)),           
+                      imageOutput("image1", height = 300)),           
 
             conditionalPanel(condition ="output.fileUploaded",
               tabsetPanel(id = "data",              
                 tabPanel("Learning Data",
                     br(),
+                    conditionalPanel(condition ="input.help",
+                                     helpText("To verify if the import parameters are correct : the first column have to be the group,
+                                              the Non attributes values have to appears empty, ")),
                     dataTableOutput("JDDlearn"),
                     p(downloadButton("downloaddataJDDlearn","Download dataset"),align="center")
                     
@@ -99,13 +104,18 @@ shinyUI(fluidPage(
             
 
                   tabPanel("Select Data", 
+                           conditionalPanel(condition ="input.help",
+                                            helpText(" Select variables to keep from the learning dataset according to the number ot the structure of Non-Attribute values (missing values)")),  
                     fluidRow(
-                        column(7, numericInput("prctNA","% NA accepted" , 100, min = 0, max = 100, step = 5)
+                        column(7, numericInput("prctNA","% NA accepted" , 100, min = 0, max = 100, step = 5),
+                               conditionalPanel(condition ="input.help",
+                                                helpText("If by group is unchecked, select variables with less than % of missing values" ))
                               ),
                         column(5, checkboxInput("NAgroup", "Select NA by group " , value = FALSE),
+                               conditionalPanel(condition ="input.help",
+                                                helpText("Calculate the % of missing values by group")),
                                conditionalPanel(condition ="input.NAgroup",
-                               radioButtons("restrict"," ",c("the both groups has less than x% of NA "=TRUE,"at least one of the group has less than x% of NA (FALSE)"=FALSE))))
-                        
+                               radioButtons("restrict"," ",c("the both groups has less than x% of NA "=TRUE,"at least one of the group has less than x% of NA"=FALSE))))
                          ),
                     hr(),
                     fluidRow(
@@ -113,7 +123,10 @@ shinyUI(fluidPage(
                              plotOutput("heatmapNA",width = "100%",height = 500),
                              p(downloadButton("downloadplotheatmapNA","Download plot"),
                                downloadButton('downloaddataheatmapNA', 'Download raw data'),align="center")),
-                    column(5,br(),plotOutput("plotNA",width = "100%",height = 500),
+                    column(5,br(),
+                           conditionalPanel(condition ="input.help",
+                                                   helpText("The 3 curves present the number of variables selected for the three possible options and the % of Na's selected")),
+                           plotOutput("plotNA",width = "100%",height = 500),
                            p(downloadButton("downloadplotNA","Download plot"),
                              downloadButton('downloaddataplotNA', 'Download raw data'),align="center")
                     )),
@@ -153,13 +166,15 @@ shinyUI(fluidPage(
                            column(10,plotOutput("plotheatmaptransformdata" ,width = "100%",height = 600),
                                   p(downloadButton("downloadplotheatmap","Download plot"),
                                   downloadButton('downloaddataheatmap', 'Download raw data'),align="center")),
-                           column(2,numericInput("nbclassvalues","Number of class of value" , 0, min = 1, max = 100, step =1),
-                                  checkboxInput("scaleheatmap","scaled values for the heatmap",value=F))
+                           column(2,checkboxInput("scaleheatmap","scaled values for the heatmap",value=F))
                          ),  
                          hr(),
-                         fluidRow(plotOutput("plotmds", width = "100%",height = 500)),
-                         p(downloadButton("downloadplotmds","Download plot"),
-                           downloadButton('downloaddatamds', 'Download raw data'),align="center")
+                         fluidRow(conditionalPanel(condition ="input.help",
+                                                   helpText("The mds (MultiDimensionnal Scaling) calcul the distances between the individuals (rows) and represented it on a plan as well as possible"),
+                                                   helpText("The aim of this graphic is to vizualized if the selection and transform parameters separate well the 2 groups")),
+                            plotOutput("plotmds", width = "100%",height = 500)),
+                            p(downloadButton("downloadplotmds","Download plot"),
+                            downloadButton('downloaddatamds', 'Download raw data'),align="center")
                 ),  
               
                
@@ -170,19 +185,22 @@ shinyUI(fluidPage(
                                       c( "No test"="notest",
                                          "Wilcoxon Test" = "Wtest",
                                          "Student Test" = "Ttest")),
+                         conditionalPanel(condition ="input.help",helpText("The test will select the differently expressed variables. The willcoxon test (Mann-Whitney-Willcoxon test) is a non parametric test. The student test is parametrics (the group has to be normally distribute and  the variance equal (or effectve superior to 30))")),
                          checkboxInput("SFtest","Shapiro and Fisher Tests",F)),
+                         conditionalPanel(condition ="input.help",
+                                          helpText("The Fisher test test the equality of variance of each column, shapiro test the normality")),
                          column(6,br(),
                                 numericInput("thresholdFC","choise of the Foldchange threshold %" , 1, min =0, max = 5, step = 0.5),
                                 conditionalPanel(condition ="input.help",
                                                  helpText("mesure of the difference between the means of the 2 groups")),
                                 numericInput("thresholdpv","choise of the p-value threshold %" , 0.05, min =0, max = 1, step = 0.01),
                                 checkboxInput("adjustpv", "adjust p-value " , value = FALSE),
-                                hr(),
                                 conditionalPanel(condition ="input.help", helpText("Benjamini & Hochberg correction")))),
+                         hr(),
                          conditionalPanel(
                            condition= "input.test== 'Wtest' || input.test== 'Ttest'",
                            fluidRow(
-                               column(6,br(),
+                               column(6,
                                       textOutput("nvarselect2",inline=T), "selected variables",
                                       plotOutput("plottest1" ,width = 500,height = 500),
                                       p(downloadButton("downloadplottest1","Download plot"),
@@ -193,7 +211,9 @@ shinyUI(fluidPage(
                                         downloadButton('downloaddatatest2', 'Download raw data'),align="center")
                                ))),
                            conditionalPanel(condition ="input.SFtest==true  ",
-                                  column(6,plotOutput("plottestcondition"))
+                                  column(6,conditionalPanel(condition ="input.help",
+                                                            helpText("Barplot presents the Results of shapiro and Fisher test")),
+                                          plotOutput("plottestcondition"))
                                   )
                 ),
                 tabPanel("Model",
@@ -205,7 +225,9 @@ shinyUI(fluidPage(
                                         "Support Vector Machine" = "svm"))
                          ),
                             column(6,
-                         numericInput("thresholdmodel","threshold model" ,0, min = -1, max = 1, step = 0.05)
+                         numericInput("thresholdmodel","threshold model" ,0, min = -1, max = 1, step = 0.05),
+                         conditionalPanel(condition ="input.help",
+                                          helpText("The threshold of the score is used for the validation"))
                           
                          #downloadButton("downloadmodel", label="Download Model")
                          )),
@@ -282,8 +304,8 @@ shinyUI(fluidPage(
                                        selected = 1),
                     numericInput("thresholdNAstructuretest","choise of the pvalue NA structure test" ,value =  0.05, min =0, max = 1, step = 0.05),
                     
-                    numericInput("maxvaluesgroupmintest","choise of the max % values of the min group" ,value =  100, min =0, max = 100, step = 5),
-                    numericInput("minvaluesgroupmaxtest","choise of the min % values of the max group" ,value =  0, min =0, max = 100, step = 5)),
+                    numericInput("maxvaluesgroupmintest","choise of the max % values of group with the minimum values" ,value =  100, min =0, max = 100, step = 5),
+                    numericInput("minvaluesgroupmaxtest","choise of the min % values of group with the maximum values" ,value =  0, min =0, max = 100, step = 5)),
                     
                   
                     column(4,
@@ -305,7 +327,8 @@ shinyUI(fluidPage(
                 tabPanel("Analys of the model",
                          h3("Summary of the model"),
                          verbatimTextOutput("summarymodel"),
-                         plotOutput("plotimportance")
+                         plotOutput("plotimportance"),hr(),
+                         plotOutput("plotcorrelation",width = 500,height = 500)
                 ),
                 tabPanel("Prediction",
                          wellPanel(

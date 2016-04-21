@@ -124,6 +124,7 @@ shinyServer(function(input, output,session) {
   
 #####  
   SELECTDATA<-reactive({
+  validate(need(input$prctNA>=0 &input$prctNA<=100,"%  NA has to be between 0 and 100"))
   tabdecouv<-DATA()$LEARNING
   restrict<-as.logical(input$restrict)
   tabselect<-selectprctNA(tabdecouv,input$prctNA,group=input$NAgroup,restrictif =restrict)
@@ -184,6 +185,8 @@ shinyServer(function(input, output,session) {
   
   
   NASTRUCT<-reactive({
+    validate(need(input$minvaluesgroupmax>=0 &input$minvaluesgroupmax<=100 & input$maxvaluesgroupmin>=0 &input$maxvaluesgroupmin<=100,"% threshold has to be between 0 and 100"),
+             need(input$thresholdNAstructure>0,input$thresholdNAstructure<1,"threshold of the pvalue has to be between 0 and 1"))
     if(input$structdata=="alldata"){tabdecouv<-DATA()$LEARNING}
     if(input$structdata=="selecteddata"){tabdecouv<-SELECTDATA()}
 
@@ -241,7 +244,7 @@ shinyServer(function(input, output,session) {
   output$plotheatmaptransformdata<-renderPlot({
     selectdata<-TRANSFORMDATA()
 
-  heatmapplot(toto =selectdata,nbclass=input$nbclassvalues,ggplot = T,scale=input$scaleheatmap)
+  heatmapplot(toto =selectdata,nbclass=0,ggplot = T,scale=input$scaleheatmap)
   })
   output$downloadplotheatmap = downloadHandler(
     filename = function() { 
@@ -366,6 +369,7 @@ shinyServer(function(input, output,session) {
     if(input$model!="nomodel"){
         if(input$test=="notest"){learning<-TRANSFORMDATA()}
         else{learning<-TEST()$tabdiff}
+      validate(need(ncol(learning)!=0,"No select dataset"))
         if(input$invers){
             learning[,1]<-factor(learning[,1],levels = rev(levels(learning[,1])),ordered = TRUE)
         }
@@ -468,7 +472,7 @@ shinyServer(function(input, output,session) {
     resmodelvalidation<-data.frame(classval,scoreval,predictclassval)
     colnames(resmodelvalidation) <-c("classval","scoreval","predictclassval") 
     auc<-auc(roc(classval, scoreval))
-    validation<-list("validationdiff"=validation,"resmodelvalidation"=resmodelvalidation,"auc"=auc)
+    validation<-list("selectdata"=tabvaldiff,"validationdiff"=validation,"resmodelvalidation"=resmodelvalidation,"auc"=auc)
 
     }
     else{
@@ -519,20 +523,20 @@ shinyServer(function(input, output,session) {
   
   output$plotmodeldecouvbp <- renderPlot({
     res<-MODEL()
-    scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,
+    scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
                    threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T)
 })
   output$downloadplotmodeldecouvbp = downloadHandler(
     filename = function() {paste('graph','.',input$paramdownplot, sep='')},
     content = function(file) {
-      ggsave(file, plot =scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,
+      ggsave(file, plot =scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
                                         threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T),  device = input$paramdownplot)},
     contentType=NA)
   
   output$downloaddatamodeldecouvbp <- downloadHandler(
     filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
     content = function(file) {
-      downloaddataset(   scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,
+      downloaddataset(   scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
                                         threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
   
   
@@ -581,21 +585,21 @@ shinyServer(function(input, output,session) {
   
     output$plotmodelvalbp <- renderPlot({
       res<-MODEL()
-      scoremodelplot(class =res$validation$resmodelvalidation$classval ,score =res$validation$resmodelvalidation$scoreval,
+      scoremodelplot(class =res$validation$resmodelvalidation$classval ,score =res$validation$resmodelvalidation$scoreval,names=rownames(res$validation$resmodelvalidation),
                      threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T)
 
     })
     output$downloadplotmodelvalbp = downloadHandler(
       filename = function() {paste('graph','.',input$paramdownplot, sep='')},
       content = function(file) {
-        ggsave(file, plot =scoremodelplot(class =MODEL()$validation$resmodelvalidation$classval ,score =MODEL()$validation$resmodelvalidation$scoreval,
+        ggsave(file, plot =scoremodelplot(class =MODEL()$validation$resmodelvalidation$classval ,score =MODEL()$validation$resmodelvalidation$scoreval,names=rownames(res$validation$resmodelvalidation),
                                           threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T),  device = input$paramdownplot)},
       contentType=NA)
     
     output$downloaddatamodelvalbp <- downloadHandler(
       filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
       content = function(file) {
-        downloaddataset(   scoremodelplot(class =MODEL()$validation$resmodelvalidation$classval ,score =MODEL()$validation$resmodelvalidation$scoreval,
+        downloaddataset(   scoremodelplot(class =MODEL()$validation$resmodelvalidation$classval ,score =MODEL()$validation$resmodelvalidation$scoreval,names=rownames(res$validation$resmodelvalidation),
                                           threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
       
     
@@ -616,7 +620,6 @@ shinyServer(function(input, output,session) {
 ######
 output$summarymodel<-renderPrint({
   model<-MODEL()$model
-  summary(model)
 })
 output$plotimportance<-renderPlot({
   if(input$model=="randomforest"){
@@ -629,6 +632,10 @@ output$plotimportance<-renderPlot({
     p + geom_bar()+coord_flip()+ylab("Variable Importance (Mean Decrease in Gini Index)")+
       theme(legend.position="none",plot.title=element_text( size=15))+ggtitle("Importance of the variable in the model")+scale_fill_grey()
   }
+})
+output$plotcorrelation<-renderPlot({
+  tabdiff<-MODEL()$decouvert$decouvdiff
+  correlogrammapp(toto=as.matrix(tabdiff[,-1]))
 })
 #####
 tabparameters <- eventReactive(input$tunetest, { 
@@ -687,10 +694,10 @@ PREDICT<-reactive({
     
     if(input$confirmdatabuttonpred==0){
       datapath<- input$predictionfile$datapath
-      tabprediction<-importfile(datapath = datapath,extension = input$filetypepred,
+      tabprediction<<-importfile(datapath = datapath,extension = input$filetypepred,
                             NAstring=input$NAstringpred,sheet=input$sheetnpred,skiplines=input$skipnpred,dec=input$decpred,sep=input$seppred)
       if(input$changedata){
-        tabprediction<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
+        tabprediction<<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
                                  transpose=input$transposepred,zeroegalNA=input$zeroegalNApred)
       }
       resprediction<-data.frame()
@@ -702,23 +709,29 @@ PREDICT<-reactive({
       }
 
        learning<-res$decouverte$decouvdiff
-       tabprediction<-tabprediction[,which(colnames(tabprediction)%in%colnames(learning))]
+       select<-which(colnames(tabprediction)%in%colnames(learning))
+       tabprediction<-tabprediction[,select]
+
+
        if(input$NAstructure){
-         varstructure<<-colnames(NASTRUCT()$NAstructure)
+         varstructure<-colnames(NASTRUCT()$NAstructure)
          for (i in 1:length(varstructure)){
            tabprediction[is.na(tabprediction[,varstructure[i]]),varstructure[i]]<-0 }
        }
+
        if(input$log) { 
          tabprediction<-log(x = tabprediction+1,base = 2)}
-      
-       class<-rep(NA,times=nrow(tabprediction))
+
+       #if ( !"class"%in%colnames(tabprediction)){
+         class<-rep(NA,times=nrow(tabprediction))
        tabprediction<-cbind(class,tabprediction)
+
        alldata<-rbind(tabprediction,learning)
      if(input$rempNA=="moygr"){ 
          print("impossible de remplacer les NA par la moy par group pour la validation")
-         tabpredictionssNA<<-replaceNA(toto = tabprediction,rempNA ="moy")        }
-       else{tabpredictionssNA<<-replaceNA(toto = tabprediction,rempNA =input$rempNA)}
-    tabprediction<-tabpredictionssNA[1:nrow(tabprediction),-1]
+         tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA ="moy")        }
+       else{tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA =input$rempNA)}
+    tabprediction<-tabpredictionssNA[,-1]
 
     ######prediction
     lev<-res$groups
@@ -746,12 +759,13 @@ PREDICT<-reactive({
     if(sum(lev==(levels(predictclass)))==0){
       predictclass<-factor(predictclass,levels = rev(levels(predictclass)),ordered = TRUE)
     }
-    resprediction<-data.frame("score"=score,"predictclass"=predictclass)
+
+    resprediction<<-data.frame("score"=score,"predictclass"=predictclass)
 
     colnames(resprediction)<-c("score","predictclass")
     }
   }
-  parameters<-res$parameters
+  parameters<<-res$parameters
   list("tab"=tabprediction,"parameters"=parameters,"resprediction"=resprediction)
   
 }) 
