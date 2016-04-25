@@ -115,7 +115,7 @@ shinyUI(fluidPage(
                                conditionalPanel(condition ="input.help",
                                                 helpText("Calculate the % of missing values by group")),
                                conditionalPanel(condition ="input.NAgroup",
-                               radioButtons("restrict"," ",c("the both groups has less than x% of NA "=TRUE,"at least one of the group has less than x% of NA"=FALSE))))
+                               radioButtons("restrict"," ",c("each group has less than x% of NA "=TRUE,"at least one group has less than x% of NA"=FALSE))))
                          ),
                     hr(),
                     fluidRow(
@@ -151,22 +151,22 @@ shinyUI(fluidPage(
                                           p(downloadButton("downloadstructur","Download plot"),
                                             downloadButton('downloaddatastructur', 'Download raw data'),align="center")),
                                    column(3,br(),br(),
-                                          numericInput("maxvaluesgroupmin","Maximum of % values authorized in the group with the minimum values",value = 25,min = 0,max = 100,step = 5),
-                                          numericInput("minvaluesgroupmax","Minimum of % values authorized in the group with the maximum values",value = 75,min = 0,max = 100,step = 5)))
+                                          numericInput("maxvaluesgroupmin","The group with the minimum of values has at most x% of values",value = 25,min = 0,max = 100,step = 5),
+                                          numericInput("minvaluesgroupmax","The group with the maximum of values has at least y% of values",value = 75,min = 0,max = 100,step = 5)))
                 )),
                 tabPanel("Transform Data", 
                          fluidRow(
                            column(6,radioButtons("rempNA", "Replacing NA by:",
                                                  c("zero" = "z","mean of the metobolite" = "moy",
-                                                   "mean by group"="moygr","PCA estimation" = "pca","Random forest estimation"="missforest")),
-                                  checkboxInput("log","transform data in log",FALSE))),
+                                                   "mean by group"="moygr","PCA estimation" = "pca","Random forest estimation"="missforest"))),
+                           column(6,checkboxInput("log","transform data in log",FALSE),
+                           checkboxInput("scaled","scaled dataset",FALSE))),
                                 hr(),
                          
                          fluidRow(
                            column(10,plotOutput("plotheatmaptransformdata" ,width = "100%",height = 600),
                                   p(downloadButton("downloadplotheatmap","Download plot"),
-                                  downloadButton('downloaddataheatmap', 'Download raw data'),align="center")),
-                           column(2,checkboxInput("scaleheatmap","scaled values for the heatmap",value=F))
+                                  downloadButton('downloaddataheatmap', 'Download raw data'),align="center"))
                          ),  
                          hr(),
                          fluidRow(conditionalPanel(condition ="input.help",
@@ -288,14 +288,17 @@ shinyUI(fluidPage(
                                        choices = list("TRUE" = TRUE, "FALSE" = FALSE),
                                        selected = 1),
                     checkboxGroupInput("restricttest", label = h3(""), 
-                                       choices = list("both groups" = TRUE, "at leats one of the groups" = FALSE),
+                                       choices = list("each group" = TRUE, "at least one group" = FALSE),
                                        selected = 1),
-                    h4("has less than x% of NA"),hr()),
-                    column(4,h3("Transform Data"),
+                    h4("has less than x% of NA"),hr(),
+                    h3("Transform Data"),
                     checkboxGroupInput("logtest", label = h4("transform data in log"), 
                                        choices = list("TRUE" = TRUE, "FALSE" = FALSE),
-                                       selected = 1),
-                    checkboxGroupInput("rempNAtest", label = h4("Replace NA with"), 
+                                       selected = 2),
+                    checkboxGroupInput("scaledtest", label = h4("scaled dataset"), 
+                                       choices = list("TRUE" = TRUE, "FALSE" = FALSE),
+                                       selected = 2)),
+                    column(4,checkboxGroupInput("rempNAtest", label = h4("Replace NA with"), 
                                        choices = list("zero" = "z", "mean" ="moy", "mean by group" = "moygr",
                                                       "pca"="pca","randomforest"="randomforest"),
                                        selected = 1),
@@ -328,7 +331,9 @@ shinyUI(fluidPage(
                          h3("Summary of the model"),
                          verbatimTextOutput("summarymodel"),
                          plotOutput("plotimportance"),hr(),
-                         plotOutput("plotcorrelation",width = 500,height = 500)
+                         plotOutput("plotcorrelation",width = 500,height = 500),
+                         p(downloadButton("downloadplotcorrelation","Download plot"),
+                           downloadButton('downloaddatacorrelation', 'Download raw data'),align="center")
                 ),
                 tabPanel("Prediction",
                          wellPanel(

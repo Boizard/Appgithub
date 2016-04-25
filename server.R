@@ -223,35 +223,39 @@ shinyServer(function(input, output,session) {
   )
 #####  
   TRANSFORMDATA<-reactive({
-    tabselect<-SELECTDATA()
+    tabselect<<-SELECTDATA()
     numcol<-ncol(tabselect)
     if(input$NAstructure){
-      NAstructure<-NASTRUCT()$NAstructuressNA
+      NAstructure<<-NASTRUCT()$NAstructuressNA
       if(!is.null(NAstructure)){
+        if (!colnames(NAstructure)%in%colnames(tabselect)!=0){
       tabselect1<-cbind(tabselect,NAstructure[,!colnames(NAstructure)%in%colnames(tabselect)])
       colnames(tabselect1)[(numcol+1):ncol(tabselect1)]<-colnames(NAstructure)[!colnames(NAstructure)%in%colnames(tabselect)]
       tabselect<-tabselect1
+        }
       }
     } 
-    
     if(input$log) { 
     tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
+    if(input$scaled){
+      tabselect[,-1]<-scale(tabselect[,-1], center = F, scale = TRUE)
+    }
 
-    tabselectssNA<<-replaceNA(toto=tabselect,rempNA=input$rempNA,pos=T,NAstructure = F)
+    tabselectssNA<-replaceNA(toto=tabselect,rempNA=input$rempNA,pos=F,NAstructure = F)
 
   })  
   
   output$plotheatmaptransformdata<-renderPlot({
     selectdata<-TRANSFORMDATA()
 
-  heatmapplot(toto =selectdata,nbclass=0,ggplot = T,scale=input$scaleheatmap)
+  heatmapplot(toto =selectdata,nbclass=0,ggplot = T,scale=F)
   })
   output$downloadplotheatmap = downloadHandler(
     filename = function() { 
       paste('graph','.',input$paramdownplot, sep='') 
     },
     content = function(file) {
-      ggsave(file, plot =    heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=input$scaleheatmap), 
+      ggsave(file, plot =    heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=F), 
              device = input$paramdownplot)
       
     },
@@ -260,12 +264,12 @@ shinyServer(function(input, output,session) {
   output$downloaddataheatmap <- downloadHandler(
     filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
     content = function(file) {
-      downloaddataset(heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=input$scaleheatmap,graph=F), file)
+      downloaddataset(heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=F,graph=F), file)
     }
   )
   
   output$plotmds<-renderPlot({
-    selectdata<<-TRANSFORMDATA()
+    selectdata<-TRANSFORMDATA()
     mdsplot(toto = selectdata,ggplot=T)
   })
   output$downloadplotmds = downloadHandler(
@@ -285,14 +289,14 @@ shinyServer(function(input, output,session) {
   )
 #####
   TEST<-reactive({
-    tabselectssNA<-TRANSFORMDATA()
+    tabselectssNA<<-TRANSFORMDATA()
     #condition tests
     if (input$SFtest){
       datatesthypothesis<-conditiontest(tabselectssNA,shaptest=T,Ftest=T,threshold=0.05)
     }
     else{datatesthypothesis<-data.frame()}
     #diff test
-    if(input$test=="notest"){tabdiff<<-tabselectssNA}
+    if(input$test=="notest"){tabdiff<-tabselectssNA}
     else{
         datatest<-diffexptest(toto = tabselectssNA,test = input$test ,adjustpval=input$adjustpv)
     #differential expressed          
@@ -423,6 +427,9 @@ shinyServer(function(input, output,session) {
         tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(learning))]
         if(input$log) { 
           tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
+        if(input$scaled){
+          tabvaldiff[,-1]<-scale(tabvaldiff[,-1], center = F, scale = TRUE)
+        }
         #NAstructure if NA ->0
         if(input$NAstructure){
         varstructure<-colnames(NASTRUCT()$NAstructure)
@@ -478,7 +485,7 @@ shinyServer(function(input, output,session) {
     else{
       validation<-list()
     }
-    listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"log"=input$log,
+    listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"log"=input$log,"scaled"=input$scaled,
                           "rempNA"=input$rempNA,"NAstructure"=input$NAstructure,"test"=input$test,"adjustpval"=input$adjustpv,
                           "thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC,"model"=input$model)
     res<<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
@@ -637,10 +644,20 @@ output$plotcorrelation<-renderPlot({
   tabdiff<-MODEL()$decouvert$decouvdiff
   correlogrammapp(toto=as.matrix(tabdiff[,-1]))
 })
+output$downloadplotcorrelation = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =correlogrammapp(toto=as.matrix(MODEL()$decouvert$decouvdiff[,-1])),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatacorrelation<- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(   correlogrammapp(toto=as.matrix(MODEL()$decouvert$decouvdiff[,-1]),graph = F), file) })
 #####
 tabparameters <- eventReactive(input$tunetest, { 
   prctNA<-seq(input$prctNAtest[1],input$prctNAtest[2],by = 10)
-  listparameters<-list("prctNA"=prctNA,"NAgroup"=input$NAgrouptest,"restrict"=input$restricttest,"log"=input$logtest,
+  listparameters<-list("prctNA"=prctNA,"NAgroup"=input$NAgrouptest,"restrict"=input$restricttest,"log"=input$logtest,"scaled"=input$scaledtest,
                        "rempNA"=input$rempNAtest,"NAstructure"=input$NAstructuretest,"thresholdNAstructure"=input$thresholdNAstructuretest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
                        "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"test"=input$testtest,"adjustpval"=input$adjustpvaltest,
                        "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"model"=input$modeltest)
@@ -654,14 +671,15 @@ tabparameters <- eventReactive(input$tunetest, {
 
   learning<<-DATA()$LEARNING
   validation<<-DATA()$VALIDATION
-  resmodel<-matrix(ncol=3,nrow=nrow(resparameters))
-  colnames(resmodel)=c("nbselect","nbdiff","auc")
+  resmodel<-matrix(ncol=5,nrow=nrow(resparameters))
+  colnames(resmodel)=c("nbselect","nbdiff","auc","sensibilite","specificite")
+  print(nrow(resparameters))
   for (i in 1:nrow(resparameters)){
     print(i)
     resmodel[i,]<-bestmodel(tabdecouv = learning ,tabval = validation ,parameters=resparameters[i,] )
   }
 
-  resparameters<-cbind(resparameters,resmodel)
+  resparameters<-cbind(resmodel,resparameters)
   
   })
 output$testparameters<-renderDataTable({
@@ -721,6 +739,9 @@ PREDICT<-reactive({
 
        if(input$log) { 
          tabprediction<-log(x = tabprediction+1,base = 2)}
+       if(input$scaled){
+         tabprediction<-scale(tabprediction, center = F, scale = TRUE)
+       }
 
        #if ( !"class"%in%colnames(tabprediction)){
          class<-rep(NA,times=nrow(tabprediction))
