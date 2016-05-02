@@ -2,7 +2,7 @@
 ######################################################
 source("global.R")
 tablearn<<-data.frame()    
-tabval<<-data.frame()
+tabval<<-NULL
 lev<<-vector()
 #tabdiff<<-data.frame()
 testdiffdata<<-data.frame()
@@ -10,10 +10,22 @@ shinyServer(function(input, output,session) {
 
   #boot output
   #####
+#   observe({
+#     if(!is.null(input$filestate)    ){
+#       return(!is.null(input$learningfile))
+#     }
+#   })
+  output$modelUploaded <- reactive({
+    return(!is.null(input$modelfile))
+  })
+  outputOptions(output, 'modelUploaded', suspendWhenHidden=FALSE)
+  
   output$fileUploaded <- reactive({
     return(!is.null(input$learningfile))
   })
   outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
+  
+
   output$image1<-renderImage({return (list(src="pictures/Logo I2MC.jpg", 
                                            contentType="image/jpeg",
                                            alt="I2MC logo"))},deleteFile = F)
@@ -21,10 +33,39 @@ shinyServer(function(input, output,session) {
     namelearn<-input$learningfile$name
   })
   output$fileUploadedval <- reactive({
-    return(!is.null(input$validationfile))
+    return( !is.null(DATA()$VALIDATION))
   })
   outputOptions(output, 'fileUploadedval', suspendWhenHidden=FALSE)
   
+  output$modelUploadedval <- reactive({
+    return(!is.null(DATA()$VALIDATION))
+  })
+  outputOptions(output, 'modelUploadedval', suspendWhenHidden=FALSE)
+  
+  observe({
+    if(input$confirmdatabutton!=0 & !is.null(input$modelfile)){
+      print(previous$parameters)
+      updateNumericInput(session, "prctNA", value = previous$parameters$prctNA)
+      updateCheckboxInput(session ,"NAgroup",value=previous$parameters$NAgroup)
+      updateRadioButtons(session,"restrict",selected =  previous$parameters$restrict)
+      updateCheckboxInput(session ,"NAstructure",value=previous$parameters$NAstructure)
+      updateNumericInput(session, "thresholdNAstructure", value = previous$parameters$thresholdNAstructure)
+      updateRadioButtons(session,"structdata",selected=previous$parameters$structdata)
+      updateNumericInput(session, "maxvaluesgroupmin", value = previous$parameters$maxvaluesgroupmin)
+      updateNumericInput(session, "minvaluesgroupmax", value = previous$parameters$minvaluesgroupmax)
+      updateRadioButtons(session,"rempNA",selected=previous$parameters$rempNA)
+      updateCheckboxInput(session ,"log",value=previous$parameters$log)
+      updateCheckboxInput(session ,"scaled",value=previous$parameters$scaled)
+      updateRadioButtons(session,"test",selected=previous$parameters$test)
+      updateNumericInput(session, "thresholdFC", value = previous$parameters$thresholdFC)
+      updateNumericInput(session, "thresholdpv", value = previous$parameters$thresholdpv)
+      updateCheckboxInput(session ,"adjustpval",value=previous$parameters$adjustpval)
+      updateRadioButtons(session,"model",selected=previous$parameters$model)
+      updateNumericInput(session, "thresholdmodel", value = previous$parameters$thresholdmodel)
+      updateCheckboxInput(session ,"adjustval",value=previous$parameters$adjustval)
+      
+    }
+  }) 
   #####
   #Slidebar2output
   ######
@@ -46,8 +87,15 @@ shinyServer(function(input, output,session) {
   
   DATA<-reactive({ 
 
-    if(is.null(input$learningfile)){return()}#Pas de fichier
-    
+    if(is.null(input$learningfile)&is.null(input$modelfile)){return()}#Pas de fichier
+    if(!is.null(input$modelfile) ){
+      load(file = input$modelfile$datapath)
+      previous<<-state
+      print(previous$parameters)
+      tablearn<-previous$data$LEARNING
+      tabval<-previous$data$VALIDATION
+      lev<-previous$data$LEVELS
+    }
     if(!is.null(input$learningfile)  ){
       
       if(input$confirmdatabutton==0){
@@ -85,11 +133,31 @@ shinyServer(function(input, output,session) {
         tabval<<-confirmdata(toto = tabval)
       }
     }
-    else{tabval<-NULL}
+    #else{tabval<-NULL}
+
      list(LEARNING=tablearn, 
           VALIDATION=tabval,
           LEVELS=lev)
     })
+  state <- reactiveValues()
+  observe({
+    parameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"NAstructure"=input$NAstructure,
+                           "thresholdNAstructure"=input$thresholdNAstructure,"structdata"=input$structdata,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax,
+                           "rempNA"=input$rempNA,"log"=input$log,"scaled"=input$scaled,
+                           "test"=input$test,"thresholdFC"=input$thresholdFC,"thresholdpv"=input$thresholdpv,"adjustpval"=input$adjustpv,
+                           "model"=input$model,"thresholdmodel"=input$thresholdmodel,"adjustval"=input$adjustval)
+    data<-DATA()
+    isolate(state<<-list("parameters"=parameters,"data"=data))
+  })
+  
+  output$savestate <- downloadHandler(
+    filename <- function(){
+      paste("model.RData")
+    },
+    content = function(file) { 
+      save(state, file = file)
+    }
+  )
   #####
   #dataTable output
   #####
@@ -225,6 +293,10 @@ shinyServer(function(input, output,session) {
   TRANSFORMDATA<-reactive({
     tabselect<<-SELECTDATA()
     numcol<-ncol(tabselect)
+    validate(need(numcol>0,"No select dataset"))
+    if(input$rempNA=="pca"){
+    validate(need(min(apply(X = tabselect,MARGIN = 2,FUN = function(x){sum(!is.na(x))}))>1,"not enough data for pca estimation"))
+    }
     if(input$NAstructure){
       NAstructure<<-NASTRUCT()$NAstructuressNA
       if(!is.null(NAstructure)){
@@ -485,9 +557,11 @@ shinyServer(function(input, output,session) {
     else{
       validation<-list()
     }
-    listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"log"=input$log,"scaled"=input$scaled,
-                          "rempNA"=input$rempNA,"NAstructure"=input$NAstructure,"test"=input$test,"adjustpval"=input$adjustpv,
-                          "thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC,"model"=input$model)
+    listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"NAstructure"=input$NAstructure,
+                               "thresholdNAstructure"=input$thresholdNAstructure,"structdata"=input$structdata,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax,
+                               "rempNA"=input$rempNA,"log"=input$log,"scaled"=input$scaled,
+                          "test"=input$test,"thresholdFC"=input$thresholdFC,"thresholdpv"=input$thresholdpv,"adjustpval"=input$adjustpv,
+                          "model"=input$model,"thresholdmodel"=input$thresholdmodel,"adjustval"=input$adjustval)
     res<<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
     }
   })
@@ -496,16 +570,8 @@ shinyServer(function(input, output,session) {
     if (input$model=="svm") { updateNumericInput(session, "thresholdmodel", value = 0)} 
     else if (input$model=="randomforest"){  updateNumericInput(session, "thresholdmodel", value = 0.5)}
   })
-  output$downloadmodel <- downloadHandler(
-    filename = "model.RData",
-    content = function(con) {
-      
-      assign("model",MODEL())
-      
-      save(list="model", file=con)
-    }
-  )
-  
+
+
   output$downloaddatalearning <- downloadHandler(
     filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
     content = function(file) {
@@ -626,7 +692,7 @@ shinyServer(function(input, output,session) {
     })
 ######
 output$summarymodel<-renderPrint({
-  model<-MODEL()$model
+  model<-print(MODEL()$model)
 })
 output$plotimportance<-renderPlot({
   if(input$model=="randomforest"){

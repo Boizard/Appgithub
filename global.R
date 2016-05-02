@@ -20,7 +20,7 @@ usePackage("shiny")
 usePackage("plyr")
 # if (!is.element("factoextra", installed.packages()[,1]))
 #   install_github("kassambara/factoextra")
-usePackage("factoextra")#PCA graphs
+#usePackage("factoextra")#PCA graphs
 usePackage("reshape2")#melt function
 usePackage("xlsx")#import fichier xls#Fonctions
 usePackage("randomForest")
@@ -106,7 +106,6 @@ transformdata<-function(toto,nrownames=1,ncolnames=1,transpose,zeroegalNA,log){
   if(zeroegalNA){toto[which(toto==0,arr.ind = T)]<-NA}
   
   toto<-as.data.frame(toto)
- 
 }
 confirmdata<-function(toto){
   toto<-as.data.frame(toto)
@@ -175,9 +174,9 @@ replaceNA<-function(toto,rempNA="z",pos=F,NAstructure=F,thresholdstruct=0.05,max
     #prise en compte des liaisons entre variable et de la ressemblance entre individus    
     #nb<-estim_ncpPCA(toto[,(nbqualisup+1):n],ncp.min = 0,ncp.max = 10,method.cv = "Kfold")    #take a lot time
     nindiv<-nrow(toto)
-    prctnacol<-apply(X = toto,MARGIN = 2,FUN=function(x){ if(sum(is.na(x))/nindiv==1){x<-rep(0,length=nindiv)}
+    prctnacol<-apply(X = toto,MARGIN = 2,FUN=function(x){ if(sum(!is.na(x))<=0){x<-rep(0,length=nindiv)}
       else{x}})
-    toto<-imputePCA(toto,ncp = min(n-1,5),method.cv="Kfold")$completeObs
+    toto<-imputePCA(prctnacol,ncp = min(n-1,5),method.cv="Kfold")$completeObs
     if(pos){toto[which(toto<0,arr.ind = T)]<-0}
     toto<-as.data.frame(toto)
     
@@ -499,7 +498,7 @@ volcanoplot<-function(toto,thresholdFC=1,thresholdpv=0.05,graph=T,maintitle="Vol
   g = ggplot(data=listgen, aes(x=logFC, y=-log10(pval))) +
     geom_point(alpha=0.4, size=1.75, colour=threshold) +
     theme(legend.position = "none") +
-    xlim(c(-(max(listgen$logFC)+0.2), max(listgen$logFC)+0.2)) + ylim(c(0, max(-log10(listgen$pval))+0.2)) +
+    #xlim(c(-(max(listgen$logFC)+0.2), max(listgen$logFC)+0.2)) + ylim(c(0, max(-log10(listgen$pval))+0.2)) +
     xlab("log2 fold change") + ylab("-log10 p-value")+
     ggtitle(maintitle)+theme(plot.title=element_text( size=15)) 
   g

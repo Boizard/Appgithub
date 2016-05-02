@@ -13,7 +13,10 @@ shinyUI(fluidPage(
             wellPanel( 
               
               conditionalPanel(condition ="input.confirmdatabutton==0" ,
-                               
+                      radioButtons("analysis","",c("new analysis","previous analysis"),inline=T),
+                        conditionalPanel( condition="input.analysis=='previous analysis' ",     
+                        fileInput("modelfile",label=h4("previous analysis"),accept=".RData")), 
+              conditionalPanel( condition="input.analysis=='new analysis' ",     
                         fluidRow( column(12,conditionalPanel(condition ="input.help",
                                                              helpText("Learning file is obligatory to continue")),
                                          fileInput("learningfile", label = h4("learning File"),
@@ -44,7 +47,7 @@ shinyUI(fluidPage(
                            fluidRow(column(6,numericInput("nrownames",label = "rownames",value = 1)),
                                     column(6,numericInput("ncolnames",label = "colnames",value = 1))),
                             checkboxInput("transpose","Transpose the table",FALSE),
-                            checkboxInput("zeroegalNA","consider 0 as NA",FALSE)
+                            checkboxInput("zeroegalNA","consider 0 as NA",FALSE))
                         ,
                         actionButton("confirmdatabutton","Confirm data"),
                         conditionalPanel(condition ="input.help",
@@ -70,7 +73,8 @@ shinyUI(fluidPage(
           radioButtons("paramdownplot","Download images as : ",
                        choices=list("png"="png","jpg"="jpg","pdf"="pdf"),selected="png"),
           radioButtons("paramdowntable","Download datasets as : ",
-                       choices=list("csv"="csv","xlsx"="xlsx"),selected="csv")
+                       choices=list("csv"="csv","xlsx"="xlsx"),selected="csv"),
+          downloadButton("savestate","Save state",class = "dlButton")
       ),
       hr(),
       checkboxInput("help","show help",FALSE)
@@ -78,10 +82,10 @@ shinyUI(fluidPage(
       ) ,
 
         mainPanel(
-            conditionalPanel(condition ="!output.fileUploaded",
+            conditionalPanel(condition ="!output.fileUploaded & !output.modelUploaded",
                       imageOutput("image1", height = 300)),           
 
-            conditionalPanel(condition ="output.fileUploaded",
+            conditionalPanel(condition ="output.fileUploaded || output.modelUploaded",
               tabsetPanel(id = "data",              
                 tabPanel("Learning Data",
                     br(),
@@ -228,8 +232,6 @@ shinyUI(fluidPage(
                          numericInput("thresholdmodel","threshold model" ,0, min = -1, max = 1, step = 0.05),
                          conditionalPanel(condition ="input.help",
                                           helpText("The threshold of the score is used for the validation"))
-                          
-                         #downloadButton("downloadmodel", label="Download Model")
                          )),
                          
                         
@@ -273,6 +275,14 @@ shinyUI(fluidPage(
                             ),
                          checkboxInput("invers", "inverse positive/negative modalities " , value = FALSE)
                 )),
+                tabPanel("Analys of the model",
+                         h3("Summary of the model"),
+                         verbatimTextOutput("summarymodel"),
+                         plotOutput("plotimportance"),hr(),
+                         plotOutput("plotcorrelation",width = 500,height = 500),
+                         p(downloadButton("downloadplotcorrelation","Download plot"),
+                           downloadButton('downloaddatacorrelation', 'Download raw data'),align="center")
+                ),
                 tabPanel("Best parameters",
                     h3("Parameters selection for testing"),
                     conditionalPanel(condition ="input.help",
@@ -326,59 +336,53 @@ shinyUI(fluidPage(
                     actionButton("tunetest","Test all models"),
                     dataTableOutput("testparameters"),
                     p(downloadButton('downloaddatatestparameters', 'Download raw data'),align="center")                    
-                ),
-                tabPanel("Analys of the model",
-                         h3("Summary of the model"),
-                         verbatimTextOutput("summarymodel"),
-                         plotOutput("plotimportance"),hr(),
-                         plotOutput("plotcorrelation",width = 500,height = 500),
-                         p(downloadButton("downloadplotcorrelation","Download plot"),
-                           downloadButton('downloaddatacorrelation', 'Download raw data'),align="center")
-                ),
-                tabPanel("Prediction",
-                         wellPanel(
-                            fluidRow(
-                              column(4,h3("Download new data"),
-                                  fileInput("predictionfile", label = h4("prediction File "),accept =  c("text/csv","application/vnd.ms-excel",
-                                                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",".xls",".xlsx")) ),
-                              column(4,br(),br(),br(),radioButtons("filetypepred", "Extention of the file",c("csv" = "csv", "xlsx ou xls" = "xlsx"))),
-                              column(4,textInput('decpred', 'character for decimal point',value = "." ),
-                                     textInput("NAstringpred", label = "characters for missing values",value = "NA"))),
-                            hr(),
-                         fluidRow( column(4,
-                                  conditionalPanel(condition ="input.filetypepred=='csv' ",
-                                                   
-                                  helpText("For csv extension"),
-                                  radioButtons('seppred', 'Separator',c(Comma=',',Semicolon=';',Tab='\t') )),
-                         
-                                  conditionalPanel(condition ="input.filetypepred=='xlsx' ",
-                                  helpText("For excel extension"),
-                                  numericInput("skipnpred",label = "number of lines to skip",value = 0),
-                                  numericInput("sheetnpred",label = "sheet",value = 1))),
-                                  column(4,checkboxInput("changedatapred",h4("Transformation data"),TRUE),
-                                         checkboxInput("transposepred","Transpose the table",FALSE),
-                                         checkboxInput("zeroegalNApred","consider 0 as NA",FALSE)
-                                         ),
-                                  column(4,numericInput("ncolnamespred",label = "colnames",value = 1),
-                                         numericInput("nrownamespred",label = "rownames",value = 1))),
-                                 
-                         hr(),
-                         actionButton("confirmdatabuttonpred","Confirm data")),
-                        hr(),
-                        h3("predict Data"),
-                        dataTableOutput("JDDpredict"),
-                        hr(),
-                        h3("Model parameters"),
-                        tableOutput("parameters"),
-                        hr(),
-                        fluidRow(
-                        column(5,
-                        h3("Prediction, score"),
-                        tableOutput("resprediction")
-                        ),
-                        column(7,br(), plotOutput("plotscorepred",width = "100%",height = 500))
-                         )
-                        )
+                )
+             
+#                 ,
+#                 tabPanel("Prediction",
+#                          wellPanel(
+#                             fluidRow(
+#                               column(4,h3("Download new data"),
+#                                   fileInput("predictionfile", label = h4("prediction File "),accept =  c("text/csv","application/vnd.ms-excel",
+#                                                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",".xls",".xlsx")) ),
+#                               column(4,br(),br(),br(),radioButtons("filetypepred", "Extention of the file",c("csv" = "csv", "xlsx ou xls" = "xlsx"))),
+#                               column(4,textInput('decpred', 'character for decimal point',value = "." ),
+#                                      textInput("NAstringpred", label = "characters for missing values",value = "NA"))),
+#                             hr(),
+#                          fluidRow( column(4,
+#                                   conditionalPanel(condition ="input.filetypepred=='csv' ",
+#                                                    
+#                                   helpText("For csv extension"),
+#                                   radioButtons('seppred', 'Separator',c(Comma=',',Semicolon=';',Tab='\t') )),
+#                          
+#                                   conditionalPanel(condition ="input.filetypepred=='xlsx' ",
+#                                   helpText("For excel extension"),
+#                                   numericInput("skipnpred",label = "number of lines to skip",value = 0),
+#                                   numericInput("sheetnpred",label = "sheet",value = 1))),
+#                                   column(4,checkboxInput("changedatapred",h4("Transformation data"),TRUE),
+#                                          checkboxInput("transposepred","Transpose the table",FALSE),
+#                                          checkboxInput("zeroegalNApred","consider 0 as NA",FALSE)
+#                                          ),
+#                                   column(4,numericInput("ncolnamespred",label = "colnames",value = 1),
+#                                          numericInput("nrownamespred",label = "rownames",value = 1))),
+#                                  
+#                          hr(),
+#                          actionButton("confirmdatabuttonpred","Confirm data")),
+#                         hr(),
+#                         h3("predict Data"),
+#                         dataTableOutput("JDDpredict"),
+#                         hr(),
+#                         h3("Model parameters"),
+#                         tableOutput("parameters"),
+#                         hr(),
+#                         fluidRow(
+#                         column(5,
+#                         h3("Prediction, score"),
+#                         tableOutput("resprediction")
+#                         ),
+#                         column(7,br(), plotOutput("plotscorepred",width = "100%",height = 500))
+#                          )
+#                         )
                          
                          
            ) )  
