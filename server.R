@@ -1,5 +1,6 @@
 
 ######################################################
+options(shiny.maxRequestSize=30*1024^2) 
 source("global.R")
 tablearn<<-data.frame()    
 tabval<<-NULL
@@ -44,7 +45,6 @@ shinyServer(function(input, output,session) {
   
   observe({
     if(input$confirmdatabutton!=0 & !is.null(input$modelfile)){
-      print(previous$parameters)
       updateNumericInput(session, "prctNA", value = previous$parameters$prctNA)
       updateCheckboxInput(session ,"NAgroup",value=previous$parameters$NAgroup)
       updateRadioButtons(session,"restrict",selected =  previous$parameters$restrict)
@@ -86,29 +86,31 @@ shinyServer(function(input, output,session) {
   })
   
   DATA<-reactive({ 
-
+    print(1)
     if(is.null(input$learningfile)&is.null(input$modelfile)){return()}#Pas de fichier
     if(!is.null(input$modelfile) ){
       load(file = input$modelfile$datapath)
       previous<<-state
-      print(previous$parameters)
       tablearn<-previous$data$LEARNING
       tabval<-previous$data$VALIDATION
       lev<-previous$data$LEVELS
     }
+    print(2)
     if(!is.null(input$learningfile)  ){
-      
+      print(22)
       if(input$confirmdatabutton==0){
         datapath<- input$learningfile$datapath
-        
+        print(23)
         tablearn<<-importfile(datapath = datapath,extension = input$filetype,
                           NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
         if(input$changedata){
+          print(24)
           tablearn<<-transformdata(toto = tablearn,nrownames=input$nrownames,ncolnames=input$ncolnames,
                               transpose=input$transpose,zeroegalNA=input$zeroegalNA)
         }
 
       }
+      print(3)
       if(input$confirmdatabutton!=0){
         tablearn<<-confirmdata(toto = tablearn)
         lev<-levels(x = tablearn[,1])
@@ -116,6 +118,7 @@ shinyServer(function(input, output,session) {
         lev<<-lev
       }
     }
+    print(5)
     if(!is.null(input$validationfile)  ){
       
       if(input$confirmdatabutton==0){
@@ -129,6 +132,7 @@ shinyServer(function(input, output,session) {
         }
         
       }
+      print(6)
       if(input$confirmdatabutton!=0){
         tabval<<-confirmdata(toto = tabval)
       }
@@ -147,7 +151,10 @@ shinyServer(function(input, output,session) {
                            "test"=input$test,"thresholdFC"=input$thresholdFC,"thresholdpv"=input$thresholdpv,"adjustpval"=input$adjustpv,
                            "model"=input$model,"thresholdmodel"=input$thresholdmodel,"adjustval"=input$adjustval)
     data<-DATA()
-    isolate(state<<-list("parameters"=parameters,"data"=data))
+    model<-MODEL()
+    if(input$NAstructure){varstructure<-colnames(NASTRUCT()$NAstructure)}
+    else{varstructure<-NULL}
+    isolate(state<<-list("parameters"=parameters,"data"=data,"model"=model,"varstructure"=varstructure))
   })
   
   output$savestate <- downloadHandler(
@@ -550,7 +557,7 @@ shinyServer(function(input, output,session) {
     levels(predictclassval)<-paste("test",lev,sep="")
     resmodelvalidation<-data.frame(classval,scoreval,predictclassval)
     colnames(resmodelvalidation) <-c("classval","scoreval","predictclassval") 
-    auc<-auc(roc(classval, scoreval))
+    auc<-auc(roc(as.vector(classval), as.vector(scoreval)))
     validation<-list("selectdata"=tabvaldiff,"validationdiff"=validation,"resmodelvalidation"=resmodelvalidation,"auc"=auc)
 
     }
@@ -707,8 +714,10 @@ output$plotimportance<-renderPlot({
   }
 })
 output$plotcorrelation<-renderPlot({
+  if(input$test!="iotest"){
   tabdiff<-MODEL()$decouvert$decouvdiff
   correlogrammapp(toto=as.matrix(tabdiff[,-1]))
+  }
 })
 output$downloadplotcorrelation = downloadHandler(
   filename = function() {paste('graph','.',input$paramdownplot, sep='')},
@@ -769,120 +778,120 @@ output$downloaddatatestparameters <- downloadHandler(
 
 
 #######
-PREDICT<-reactive({
-  res<-MODEL()
-  if(is.null(input$predictionfile)){return()
-  }#Pas de fichier
-  
-  if(!is.null(input$predictionfile)  ){
-    
-    if(input$confirmdatabuttonpred==0){
-      datapath<- input$predictionfile$datapath
-      tabprediction<<-importfile(datapath = datapath,extension = input$filetypepred,
-                            NAstring=input$NAstringpred,sheet=input$sheetnpred,skiplines=input$skipnpred,dec=input$decpred,sep=input$seppred)
-      if(input$changedata){
-        tabprediction<<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
-                                 transpose=input$transposepred,zeroegalNA=input$zeroegalNApred)
-      }
-      resprediction<-data.frame()
-      
-    }
-    if(input$confirmdatabuttonpred!=0){
-      for (i in 1:ncol(tabprediction)){
-       tabprediction[,i]<-as.numeric(as.character(tabprediction[,i]))
-      }
-
-       learning<-res$decouverte$decouvdiff
-       select<-which(colnames(tabprediction)%in%colnames(learning))
-       tabprediction<-tabprediction[,select]
-
-
-       if(input$NAstructure){
-         varstructure<-colnames(NASTRUCT()$NAstructure)
-         for (i in 1:length(varstructure)){
-           tabprediction[is.na(tabprediction[,varstructure[i]]),varstructure[i]]<-0 }
-       }
-
-       if(input$log) { 
-         tabprediction<-log(x = tabprediction+1,base = 2)}
-       if(input$scaled){
-         tabprediction<-scale(tabprediction, center = F, scale = TRUE)
-       }
-
-       #if ( !"class"%in%colnames(tabprediction)){
-         class<-rep(NA,times=nrow(tabprediction))
-       tabprediction<-cbind(class,tabprediction)
-
-       alldata<-rbind(tabprediction,learning)
-     if(input$rempNA=="moygr"){ 
-         print("impossible de remplacer les NA par la moy par group pour la validation")
-         tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA ="moy")        }
-       else{tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA =input$rempNA)}
-    tabprediction<-tabpredictionssNA[,-1]
-
-    ######prediction
-    lev<-res$groups
-    model<-res$model
-    if(input$model=="randomforest"){
-      score <-predict(object=model,type="prob",newdata = tabprediction)[,lev["positif"]]
-      predictclass<-vector(length = length(score) ) 
-      predictclass[which(score>=input$thresholdmodel)]<-lev["positif"]
-      predictclass[which(score<input$thresholdmodel)]<-lev["negatif"]
-      predictclass<-as.factor(predictclass)
-
-    }
-
-    if(input$model=="svm"){
-      score =attr(predict(model,newdata =  tabprediction,decision.values=T),"decision.values")
-      if(sum(lev==(strsplit(colnames(score),split = "/")[[1]]))==0){score<-score*(-1)}
-      
-      colnames(score)
-      predictclass<-vector(length = length(score) ) 
-      predictclass[which(score>=input$thresholdmodel)]<-lev["positif"]
-      predictclass[which(score<input$thresholdmodel)]<-lev["negatif"]
-      predictclass<-as.factor(predictclass)
-
-    }
-    if(sum(lev==(levels(predictclass)))==0){
-      predictclass<-factor(predictclass,levels = rev(levels(predictclass)),ordered = TRUE)
-    }
-
-    resprediction<<-data.frame("score"=score,"predictclass"=predictclass)
-
-    colnames(resprediction)<-c("score","predictclass")
-    }
-  }
-  parameters<<-res$parameters
-  list("tab"=tabprediction,"parameters"=parameters,"resprediction"=resprediction)
-  
-}) 
- 
-#####
-output$JDDpredict=renderDataTable({
-  respredict<-PREDICT()
-  predict<-PREDICT()$tab
-  colmin<-min(ncol(predict),100)
-  rowmin<-min(nrow(predict),100)
-  cbind(Names=rownames(predict[1:rowmin,1:colmin]),predict[1:rowmin,1:colmin])},
-  options = list(    "orderClasses" = F,
-                     "responsive" = F,
-                     "pageLength" = 10))
-
-
-output$parameters=renderTable({
-  parameters<-PREDICT()$parameters
-  cbind(Names=rownames(parameters),parameters)})
-
-output$resprediction=renderTable({
-  resprediction<-PREDICT()$resprediction
-  resprediction}) 
-
-
-
-output$plotscorepred <- renderPlot({
-  scorepredict<-PREDICT()$resprediction$score
-  score<-MODEL()$decouverte$resmodeldecouv$scoredecouv
-  densityscore(score,scorepredict,maintitle="Density learning's score and prediction score",threshold=input$thresholdmodel)
-  })
+# PREDICT<-reactive({
+#   res<-MODEL()
+#   if(is.null(input$predictionfile)){return()
+#   }#Pas de fichier
+#   
+#   if(!is.null(input$predictionfile)  ){
+#     
+#     if(input$confirmdatabuttonpred==0){
+#       datapath<- input$predictionfile$datapath
+#       tabprediction<<-importfile(datapath = datapath,extension = input$filetypepred,
+#                             NAstring=input$NAstringpred,sheet=input$sheetnpred,skiplines=input$skipnpred,dec=input$decpred,sep=input$seppred)
+#       if(input$changedata){
+#         tabprediction<<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
+#                                  transpose=input$transposepred,zeroegalNA=input$zeroegalNApred)
+#       }
+#       resprediction<-data.frame()
+#       
+#     }
+#     if(input$confirmdatabuttonpred!=0){
+#       for (i in 1:ncol(tabprediction)){
+#        tabprediction[,i]<-as.numeric(as.character(tabprediction[,i]))
+#       }
+# 
+#        learning<-res$decouverte$decouvdiff
+#        select<-which(colnames(tabprediction)%in%colnames(learning))
+#        tabprediction<-tabprediction[,select]
+# 
+# 
+#        if(input$NAstructure){
+#          varstructure<-colnames(NASTRUCT()$NAstructure)
+#          for (i in 1:length(varstructure)){
+#            tabprediction[is.na(tabprediction[,varstructure[i]]),varstructure[i]]<-0 }
+#        }
+# 
+#        if(input$log) { 
+#          tabprediction<-log(x = tabprediction+1,base = 2)}
+#        if(input$scaled){
+#          tabprediction<-scale(tabprediction, center = F, scale = TRUE)
+#        }
+# 
+#        #if ( !"class"%in%colnames(tabprediction)){
+#          class<-rep(NA,times=nrow(tabprediction))
+#        tabprediction<-cbind(class,tabprediction)
+# 
+#        alldata<-rbind(tabprediction,learning)
+#      if(input$rempNA=="moygr"){ 
+#          print("impossible de remplacer les NA par la moy par group pour la validation")
+#          tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA ="moy")        }
+#        else{tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA =input$rempNA)}
+#     tabprediction<-tabpredictionssNA[,-1]
+# 
+#     ######prediction
+#     lev<-res$groups
+#     model<-res$model
+#     if(input$model=="randomforest"){
+#       score <-predict(object=model,type="prob",newdata = tabprediction)[,lev["positif"]]
+#       predictclass<-vector(length = length(score) ) 
+#       predictclass[which(score>=input$thresholdmodel)]<-lev["positif"]
+#       predictclass[which(score<input$thresholdmodel)]<-lev["negatif"]
+#       predictclass<-as.factor(predictclass)
+# 
+#     }
+# 
+#     if(input$model=="svm"){
+#       score =attr(predict(model,newdata =  tabprediction,decision.values=T),"decision.values")
+#       if(sum(lev==(strsplit(colnames(score),split = "/")[[1]]))==0){score<-score*(-1)}
+#       
+#       colnames(score)
+#       predictclass<-vector(length = length(score) ) 
+#       predictclass[which(score>=input$thresholdmodel)]<-lev["positif"]
+#       predictclass[which(score<input$thresholdmodel)]<-lev["negatif"]
+#       predictclass<-as.factor(predictclass)
+# 
+#     }
+#     if(sum(lev==(levels(predictclass)))==0){
+#       predictclass<-factor(predictclass,levels = rev(levels(predictclass)),ordered = TRUE)
+#     }
+# 
+#     resprediction<<-data.frame("score"=score,"predictclass"=predictclass)
+# 
+#     colnames(resprediction)<-c("score","predictclass")
+#     }
+#   }
+#   parameters<<-res$parameters
+#   list("tab"=tabprediction,"parameters"=parameters,"resprediction"=resprediction)
+#   
+# }) 
+#  
+# #####
+# output$JDDpredict=renderDataTable({
+#   respredict<-PREDICT()
+#   predict<-PREDICT()$tab
+#   colmin<-min(ncol(predict),100)
+#   rowmin<-min(nrow(predict),100)
+#   cbind(Names=rownames(predict[1:rowmin,1:colmin]),predict[1:rowmin,1:colmin])},
+#   options = list(    "orderClasses" = F,
+#                      "responsive" = F,
+#                      "pageLength" = 10))
+# 
+# 
+# output$parameters=renderTable({
+#   parameters<-PREDICT()$parameters
+#   cbind(Names=rownames(parameters),parameters)})
+# 
+# output$resprediction=renderTable({
+#   resprediction<-PREDICT()$resprediction
+#   resprediction}) 
+# 
+# 
+# 
+# output$plotscorepred <- renderPlot({
+#   scorepredict<-PREDICT()$resprediction$score
+#   score<-MODEL()$decouverte$resmodeldecouv$scoredecouv
+#   densityscore(score,scorepredict,maintitle="Density learning's score and prediction score",threshold=input$thresholdmodel)
+#   })
 
 }) 

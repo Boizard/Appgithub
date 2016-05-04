@@ -42,7 +42,7 @@ shinyUI(fluidPage(
                                    numericInput("skipn",label = "number of lines to skip",value = 0),
                                    numericInput("sheetn",label = "sheet",value = 1))),
                         
-                        checkboxInput("changedata",h3("Transformation data"),TRUE),
+                        checkboxInput("changedata",h3("Transformation data"),FALSE),
                         #conditionalPanel(condition ="input.fileselect==true",
                            fluidRow(column(6,numericInput("nrownames",label = "rownames",value = 1)),
                                     column(6,numericInput("ncolnames",label = "colnames",value = 1))),
@@ -74,6 +74,7 @@ shinyUI(fluidPage(
                        choices=list("png"="png","jpg"="jpg","pdf"="pdf"),selected="png"),
           radioButtons("paramdowntable","Download datasets as : ",
                        choices=list("csv"="csv","xlsx"="xlsx"),selected="csv"),
+          hr(),
           downloadButton("savestate","Save state",class = "dlButton")
       ),
       hr(),
