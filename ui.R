@@ -42,7 +42,7 @@ shinyUI(fluidPage(
                                    numericInput("skipn",label = "number of lines to skip",value = 0),
                                    numericInput("sheetn",label = "sheet",value = 1))),
                         
-                        checkboxInput("changedata",h3("Transformation data"),FALSE),
+                        checkboxInput("changedata",h3("Transformation data"),value = FALSE),
                         #conditionalPanel(condition ="input.fileselect==true",
                            fluidRow(column(6,numericInput("nrownames",label = "rownames",value = 1)),
                                     column(6,numericInput("ncolnames",label = "colnames",value = 1))),
@@ -232,15 +232,18 @@ shinyUI(fluidPage(
                             column(6,
                          numericInput("thresholdmodel","threshold model" ,0, min = -1, max = 1, step = 0.05),
                          conditionalPanel(condition ="input.help",
-                                          helpText("The threshold of the score is used for the validation"))
-                         )),
+                                          helpText("The threshold of the score is used for the validation")),
+                         checkboxInput("fs","features selection by cross validation",F)
+                        )),
                          
                         
                         conditionalPanel(condition ="output.fileUploadedval & input.model!='nomodel'  ",
                                 checkboxInput("adjustval","Adjust model on validation data",F)),
+                        hr(),
                         conditionalPanel(condition ="input.model!='nomodel'  ",
                          fluidRow(div(
-                           column(6,h3("model learning")),
+                           column(6,textOutput('nbselectmodel',inline=T),'selected variables',
+                                  h3("model learning")),
                            column(6,br(),downloadButton('downloaddatalearning', 'Download learning data')))),
                          fluidRow(
                            column(6,plotOutput("plotmodeldecouvroc"),
@@ -333,7 +336,10 @@ shinyUI(fluidPage(
                     numericInput("thresholdpvtest","choise of the p-value threshold %" , 0.05, min =0, max = 1, step = 0.01),  hr(),
                     checkboxGroupInput("modeltest", label = h3("Model"), 
                                        choices = list("svm"="svm","randomforest" = "randomforest"),
-                                       selected = 1))),
+                                       selected = 1),
+                    checkboxGroupInput("fstest","features selection by cross validation",choices = list("TRUE" = TRUE, "FALSE" = FALSE),
+                                       selected = 1)
+                    )),
                     actionButton("tunetest","Test all models"),
                     dataTableOutput("testparameters"),
                     p(downloadButton('downloaddatatestparameters', 'Download raw data'),align="center")                    

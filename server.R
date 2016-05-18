@@ -1,6 +1,6 @@
 
 ######################################################
-options(shiny.maxRequestSize=30*1024^2) 
+options(shiny.maxRequestSize=60*1024^2) 
 source("global.R")
 tablearn<<-data.frame()    
 tabval<<-NULL
@@ -62,6 +62,7 @@ shinyServer(function(input, output,session) {
       updateCheckboxInput(session ,"adjustpval",value=previous$parameters$adjustpval)
       updateRadioButtons(session,"model",selected=previous$parameters$model)
       updateNumericInput(session, "thresholdmodel", value = previous$parameters$thresholdmodel)
+      updateCheckboxInput(session ,"fs",value=previous$parameters$fs)
       updateCheckboxInput(session ,"adjustval",value=previous$parameters$adjustval)
       
     }
@@ -86,7 +87,6 @@ shinyServer(function(input, output,session) {
   })
   
   DATA<-reactive({ 
-    print(1)
     if(is.null(input$learningfile)&is.null(input$modelfile)){return()}#Pas de fichier
     if(!is.null(input$modelfile) ){
       load(file = input$modelfile$datapath)
@@ -95,22 +95,17 @@ shinyServer(function(input, output,session) {
       tabval<-previous$data$VALIDATION
       lev<-previous$data$LEVELS
     }
-    print(2)
     if(!is.null(input$learningfile)  ){
-      print(22)
       if(input$confirmdatabutton==0){
         datapath<- input$learningfile$datapath
-        print(23)
         tablearn<<-importfile(datapath = datapath,extension = input$filetype,
                           NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
         if(input$changedata){
-          print(24)
           tablearn<<-transformdata(toto = tablearn,nrownames=input$nrownames,ncolnames=input$ncolnames,
                               transpose=input$transpose,zeroegalNA=input$zeroegalNA)
         }
 
       }
-      print(3)
       if(input$confirmdatabutton!=0){
         tablearn<<-confirmdata(toto = tablearn)
         lev<-levels(x = tablearn[,1])
@@ -118,7 +113,6 @@ shinyServer(function(input, output,session) {
         lev<<-lev
       }
     }
-    print(5)
     if(!is.null(input$validationfile)  ){
       
       if(input$confirmdatabutton==0){
@@ -132,7 +126,6 @@ shinyServer(function(input, output,session) {
         }
         
       }
-      print(6)
       if(input$confirmdatabutton!=0){
         tabval<<-confirmdata(toto = tabval)
       }
@@ -149,7 +142,7 @@ shinyServer(function(input, output,session) {
                            "thresholdNAstructure"=input$thresholdNAstructure,"structdata"=input$structdata,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax,
                            "rempNA"=input$rempNA,"log"=input$log,"scaled"=input$scaled,
                            "test"=input$test,"thresholdFC"=input$thresholdFC,"thresholdpv"=input$thresholdpv,"adjustpval"=input$adjustpv,
-                           "model"=input$model,"thresholdmodel"=input$thresholdmodel,"adjustval"=input$adjustval)
+                           "model"=input$model,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
     data<-DATA()
     model<-MODEL()
     if(input$NAstructure){varstructure<-colnames(NASTRUCT()$NAstructure)}
@@ -463,9 +456,14 @@ shinyServer(function(input, output,session) {
     #Build model
         if (input$model=="randomforest"){
             set.seed(20011203)
-            model <- randomForest(learning[,-1],learning[,1],ntree=500,
+            model <<- randomForest(learning[,-1],learning[,1],ntree=500,
                             importance=T,keep.forest=T)
-            
+            if(input$fs){
+              featureselect<-selectedfeature(model=model,modeltype = "randomforest",tab=tabdiff,
+                                             criterionimportance = "fscore",criterionmodel = "BER")
+              model<-featureselect$model
+              learning<-featureselect$dataset
+            }
             scoredecouv =data.frame(model$votes[,lev["positif"]])
             colnames(scoredecouv)<-paste(lev[1],"/",lev[2],sep="")
             predictclassdecouv<-factor(levels = lev) 
@@ -478,7 +476,22 @@ shinyServer(function(input, output,session) {
 
         if(input$model=="svm"){
             colnames(learning)[1]<-"class"
-            model <- best.tune(svm,class ~ ., data = learning )     
+            
+         model <- best.tune(svm,class ~ ., data = learning,cross=10 )   
+            
+            if(input$fs){
+#               x<-as.matrix(learning[,-1])
+#               y<-((as.numeric(learning[,1])-1)*2)-1
+#               scad<- svm.fs(x, y=y, fs.method="scad", bounds=NULL,
+#                             cross.outer= 0, grid.search = "interval",  maxIter = 100,
+#                             inner.val.method = "cv", cross.inner= 5, maxevals=500,
+#                             seed=123, parms.coding = "log2", show="none", verbose=FALSE )
+#               length(scad$model$xind)
+#               learning<-learning[,c(1,scad$model$xind+1)]
+              featureselect<-selectedfeature(model=model,modeltype = "svm",tab=tabdiff,criterionimportance = "fscore",criterionmodel = "BER")
+              model<-featureselect$model
+              learning<-featureselect$dataset
+            }
             scoredecouv <-model$decision.values
             if(sum(lev==(strsplit(colnames(scoredecouv),split = "/")[[1]]))==0){
               scoredecouv<-scoredecouv*(-1)
@@ -512,7 +525,6 @@ shinyServer(function(input, output,session) {
         #NAstructure if NA ->0
         if(input$NAstructure){
         varstructure<-colnames(NASTRUCT()$NAstructure)
-        #print(varstructure)
         tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
         }
         #merge learning tabvaldiff
@@ -618,7 +630,9 @@ shinyServer(function(input, output,session) {
     content = function(file) {
       downloaddataset(   scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
                                         threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
-  
+  output$nbselectmodel<-renderText({
+    ncol(MODEL()$decouverte$decouvdiff)-1
+  })
   
   output$tabmodeldecouv<-renderTable({
     res<-MODEL()
@@ -735,7 +749,7 @@ tabparameters <- eventReactive(input$tunetest, {
   listparameters<-list("prctNA"=prctNA,"NAgroup"=input$NAgrouptest,"restrict"=input$restricttest,"log"=input$logtest,"scaled"=input$scaledtest,
                        "rempNA"=input$rempNAtest,"NAstructure"=input$NAstructuretest,"thresholdNAstructure"=input$thresholdNAstructuretest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
                        "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"test"=input$testtest,"adjustpval"=input$adjustpvaltest,
-                       "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"model"=input$modeltest)
+                       "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"fs"=input$fstest,"model"=input$modeltest)
   if( sum(do.call(rbind, lapply(listparameters, FUN=function(x){as.numeric(is.null(x))})))>0){resparameters="One of the parameters is empty"}
   else{
   resparameters<-constructparameters(listparameters)
@@ -746,8 +760,9 @@ tabparameters <- eventReactive(input$tunetest, {
 
   learning<<-DATA()$LEARNING
   validation<<-DATA()$VALIDATION
-  resmodel<-matrix(ncol=5,nrow=nrow(resparameters))
-  colnames(resmodel)=c("nbselect","nbdiff","auc","sensibilite","specificite")
+    resmodel<-matrix(ncol=6,nrow=nrow(resparameters))
+  colnames(resmodel)=c("nbselect","nbdiff","nbselectmodel","auc","sensibilite","specificite")
+
   print(nrow(resparameters))
   for (i in 1:nrow(resparameters)){
     print(i)

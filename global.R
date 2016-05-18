@@ -27,6 +27,7 @@ usePackage("randomForest")
 usePackage("missForest")
 usePackage("Hmisc")
 usePackage("corrplot")
+usePackage("penalizedSVM")
 
 ##########################
 importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec=".",sep=","){
@@ -39,7 +40,7 @@ importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec="
     options(warn=-1)
       file.rename(datapath,paste(datapath, ".xlsx", sep=""))
     options(warn=0)
-    toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = F,skip = skiplines,sheet = 1)
+    toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
     
   }
   toto<-as.data.frame(toto)
@@ -675,17 +676,16 @@ errorplot<-function(text=paste("error /n","text error")){
 
 bestmodel<-function(tabdecouv,tabval,parameters){
   tabselect<-selectprctNA(toto = tabdecouv,prctNA = parameters$prctNA,group=as.logical(parameters$NAgroup),restrictif =as.logical(parameters$restrict))
-  nbselect<<-ncol(tabselect)-1
+  nbselect<-dim(tabselect)[2]-1
   if(parameters$NAstructure==TRUE){
     tabNAstructure<<-as.data.frame(replaceproptestNA(toto = tabdecouv,threshold = parameters$thresholdNAstructure ,rempNA ="moygr",
                                      maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T))
-    if(!is.null(tabNAstructure)){##
+    if(!is.null(tabNAstructure)){
     tabselect1<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
     if(sum(!colnames(tabNAstructure)%in%colnames(tabselect))!=0){
       colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]}
     tabselect<-tabselect1}
   }
-
   if(parameters$log==TRUE) {
     tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
   if(parameters$scaled==TRUE){
@@ -702,9 +702,9 @@ bestmodel<-function(tabdecouv,tabval,parameters){
   else{ 
     if(parameters$NAstructure==TRUE){varstructure<-colnames(tabNAstructure)}
     else{varstructure<-NULL}
-    auc<-modelisation(tabdiff = tabdiff,tabval = tabval,model = as.character(parameters$model),
-            rempNA = as.character(parameters$rempNA),log=parameters$log,scaled=parameters$scaled,varstructure=varstructure)
-    }
+    auc<-modelisation(tabdiff = tabdiff,tabval = tabval,model = as.character(parameters$model)  ,
+            rempNA = as.character(parameters$rempNA) ,log=parameters$log,scaled=parameters$scaled,varstructure=varstructure,fs = parameters$fs)
+  }
   res<-c(nbselect,nbdiff,auc)
   return(res)
 }
@@ -729,19 +729,42 @@ testdiff<-function(tabselectssNA,test,adjustpval,thresholdpv,thresholdFC){
   return(tabdiff)
 }
 
-modelisation<-function(tabdiff,tabval,model,rempNA,log,scaled,varstructure=NULL){
-
+modelisation<-function(tabdiff,tabval,model,rempNA,log,scaled,varstructure=NULL,fs=F){
   if (model=="randomforest"){
     set.seed(20011203)
     tab<-as.data.frame(tabdiff[,-1])
     colnames(tab)<-colnames(tabdiff)[-1]
     resmodel <- randomForest(tab,tabdiff[,1],ntree=500,
                              importance=T,keep.forest=T)
+    if(fs==TRUE){
+      featureselect<-selectedfeature(model=resmodel,modeltype ="randomforest" ,tab=tabdiff,
+                                     criterionimportance = "fscore",criterionmodel = "BER")
+      resmodel<-featureselect$model
+      tabdiff<-featureselect$dataset
+      }
   }   
   if(model=="svm"){
-    resmodel<- best.tune(svm,class ~ ., data = tabdiff )
+    
+    resmodel<- best.tune(svm,train.y=tabdiff[,1] ,train.x=tabdiff[,-1],cross=10)
+    
+    if(fs==TRUE){
+      
+#       x<-as.matrix(tabdiff[,-1])
+#       y<-((as.numeric(tabdiff[,1])-1)*2)-1
+#       scad<- svm.fs(x, y=y, fs.method="scad", bounds=NULL,
+#                     cross.outer= 0, grid.search = "interval",  maxIter = 100,
+#                     inner.val.method = "cv", cross.inner= 5, maxevals=500,
+#                     seed=123, parms.coding = "log2", show="none", verbose=FALSE )
+#       nbselectmodel<-length(scad$model$xind)
+#       tabdiff<-tabdiff[,c(1,scad$model$xind+1)]
+      featureselect<-selectedfeature(model=resmodel,modeltype ="svm" ,tab=tabdiff,criterionimportance = "fscore",criterionmodel = "BER")
+      resmodel<-featureselect$model
+      tabdiff<-featureselect$dataset
+    }
     #resmodel <- svm(class ~ ., data = tabdiff )
   }
+  nbselectmodel<-ncol(tabdiff)-1
+  
   #Validation
   
   tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(tabdiff))]
@@ -760,8 +783,8 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,scaled,varstructure=NULL)
   validation<-tabvaldiffssNA[1:nrow(tabvaldiff),-1]
   colnames(validation)<-colnames(tabvaldiff )[-1]
   if(model=="randomforest"){
-    scoreval<<-predict(object=resmodel,type="prob",newdata = validation)[,2]
-    predval<<-predict(object=resmodel,type="response",newdata = validation)
+    scoreval<-predict(object=resmodel,type="prob",newdata = validation)[,2]
+    predval<-predict(object=resmodel,type="response",newdata = validation)
   }
 
   if(model=="svm"){
@@ -773,7 +796,7 @@ modelisation<-function(tabdiff,tabval,model,rempNA,log,scaled,varstructure=NULL)
   data<-table(predval, tabvaldiff[,1])
   sensibilite<-round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
   specificite<-round(data[2,2]/(data[1,2]+data[2,2]),digits=3)
-  res<-c(auc,sensibilite,specificite)
+  res<-c(nbselectmodel,auc,sensibilite,specificite)
   return(res)
 }
 constructparameters<-function(listparameters){
@@ -807,6 +830,7 @@ classparameters<-function(resparameters){
   resparameters$adjustpval<-as.logical(resparameters$adjustpval)
   resparameters$thresholdpv<-as.numeric(resparameters$thresholdpv)
   resparameters$thresholdFC<-as.numeric(resparameters$thresholdFC)
+  resparameters$fs<-as.logical(x = resparameters$fs)
   resparameters$model<-as.factor(resparameters$model)
   return(resparameters)
   
@@ -862,3 +886,114 @@ densityscore<-function(score,scorepredict,maintitle="Density learning's score an
                       labels=c("negativ","positiv"))+guides(colour = guide_legend(override.aes = list(alpha = 0.5)))
 }
 
+
+
+importancemodelsvm<-function(model,modeltype,tabdiff,criterion){
+  importancevar<-vector()
+  if(criterion=="accuracy"){
+    if(modeltype=="svm"){
+    for (i in 2:ncol(tabdiff)){
+      vec<-vector()
+      tabdiffmodif<-tabdiff
+      for( j in 1:20){
+        tabdiffmodif[,i]<-tabdiffmodif[sample(1:nrow(tabdiff)),i]
+        #tabdiffmodif<-tabdiffmodif[,-i]
+        
+        resmodeldiff<-svm(y =tabdiffmodif[,1],x=tabdiffmodif[,-1],cross=10,type ="C-classification", kernel="radial",cost=model$cost,gamma=model$gamma)
+        vec[j]<-abs(resmodeldiff$tot.accuracy-model$tot.accuracy)
+      }
+      importancevar[i]<-mean(vec)}
+      
+    }
+    if(modeltype=="randomforest"){
+      model <- randomForest(tabdiff[,-1],tabdiff[,1],ntree=500,importance=T,keep.forest=T)
+      importancevar<-model$importance[,4]
+      importancevar<-c(NA,importancevar)
+    }
+  }
+  if(criterion=="fscore"){
+    importancevar<-Fscore(tab = tabdiff[,-1],class=tabdiff[,1])
+  }
+  return(importancevar)
+}
+
+testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
+  #retourn la variable a enlever
+  importancevar<-importancemodelsvm(model = model,modeltype=modeltype,tabdiff=tab,criterion = criterionimportance)
+  lessimportantevar<-which(importancevar==min(importancevar,na.rm =T) )
+  test<-vector()
+  if(modeltype=="svm"){
+  if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$fitted)}
+  if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$decision.values)))}
+  for(i in 1:length(lessimportantevar)){
+    tabdiff2<-tab[,-lessimportantevar[i]]
+    resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)
+    if(criterionmodel=="accuracy"){test[i]<-resmodeldiff$tot.accuracy-model$tot.accuracy}
+    if(criterionmodel=="BER"){
+      print(bermod)
+      print(BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted))
+      test[i]<-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)-bermod}
+    if(criterionmodel=="auc"){
+      print(auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values))))
+      test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values)))-aucmod}
+    }}
+    if(modeltype=="randomforest"){
+      if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$predicted)}
+      if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$votes[,1])))}
+      for(i in 1:length(lessimportantevar)){
+        tabdiff2<-tab[,-lessimportantevar[i]]
+        resmodeldiff <-randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T,trace=T)
+    if(criterionmodel=="accuracy"){test[i]<-mean(resmodeldiff$confusion[,3])-mean(model$confusion[,3])}
+    if(criterionmodel=="BER"){
+      print(bermod)
+      print(BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted))
+      test[i]<-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)-bermod}
+    if(criterionmodel=="auc"){
+      print(auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1]))))
+      test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1])))-aucmod}
+    }
+    }
+  print(test)
+  if(max(test)>=0){num<-lessimportantevar[which(test==max(test))[1]]}
+  else(num<-0)
+  return(num)
+} 
+
+Fscore<-function(tab,class){
+  tabpos<-tab[which(class==levels(class)[1]),]
+  npos<-nrow(tabpos)
+  tabneg<-tab[which(class==levels(class)[2]),]
+  nneg<-nrow(tabneg)
+  fscore<-vector()
+  for(i in 1:ncol(tab)){
+    moypos<-mean(tabpos[,i])
+    moyneg<-mean(tabneg[,i])
+    moy<-mean(tab[,i])
+    numerateur<-(moypos-moy)^2+(moyneg-moy)^2
+    denominateur<-(sum((tabpos[,i]-moypos)^2)*(1/(npos-1)))+(sum((tabneg[,i]-moyneg)^2)*(1/(nneg-1)))
+    fscore[i]<-numerateur/denominateur
+  }
+  return(c(NA,fscore))
+}
+
+BER<-function(class,classpredict){
+  pos<-which(class==levels(class)[1])
+  neg<-which(class==levels(class)[2])
+  (1/2)*( sum(class[pos]!=classpredict[pos])/length(pos)+ sum(class[neg]!=classpredict[neg])/length(neg)  )
+}
+
+selectedfeature<-function(model,modeltype,tab,criterionimportance,criterionmodel){
+  rmvar<-testmodel(model=model,modeltype = modeltype,tab=tab,criterionimportance = criterionimportance,criterionmodel = criterionmodel)
+  i=0
+  tabdiff2<-tab
+  while(rmvar!=0){
+    print(i<-i+1)
+    tabdiff2<-tabdiff2[,-rmvar]
+    if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)}
+    if (modeltype=="randomforest"){model <- randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T)}
+    rmvar<-testmodel(model=model,modeltype = modeltype,tab=tabdiff2
+                     ,criterionimportance = criterionimportance,criterionmodel = criterionmodel)
+  }
+  res<-list("dataset"=tabdiff2,"model"=model)
+  return(res)
+}
