@@ -38,9 +38,11 @@ importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec="
   }
   if(extension=="xlsx"){
     options(warn=-1)
-      file.rename(datapath,paste(datapath, ".xlsx", sep=""))
+      filerm<<-file.rename(datapath,paste(datapath, ".xlsx", sep=""))
     options(warn=0)
-    toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
+   toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
+    # toto <-read.xlsx2(file = datapath,sheetIndex = sheet)
+    #toto <-read_excel(datapath,na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
     
   }
   toto<-as.data.frame(toto)
@@ -372,6 +374,7 @@ heatmapplot<-function(toto,nbclass=0,ggplot=T,maintitle="Heatmap of the transfor
   if(nbclass>0){
     quant<-quantile(toto,probs=seq(0,1,length=nbclass+1))
   }
+  print(5555555)
   if(!graph){return(toto)}
   if(!ggplot){
     if (nbclass==0){
@@ -560,11 +563,12 @@ plot_pred_type_distribution <- function(class,pred,names, threshold,maintitle="S
 }
 
 
-boxplotggplot<-function(class,score,names,maintitle="svm score's Boxplot ",graph=T){
+boxplotggplot<-function(class,score,names,threshold,maintitle="svm score's Boxplot ",graph=T){
   data<-data.frame("names"=names,"class"= class,"score"=as.vector(score))
   if(!graph){return(data)}
   p<-ggplot(data, aes(x=class, y=score, fill=class)) +
     geom_boxplot()+
+    geom_hline(yintercept=threshold, color="red", alpha=0.6)+
     ggtitle(maintitle)+theme(plot.title=element_text( size=15))
 
   p
@@ -572,7 +576,7 @@ boxplotggplot<-function(class,score,names,maintitle="svm score's Boxplot ",graph
 
 scoremodelplot<-function(class,score,names,threshold,type,graph){
     if(type=="boxplot"){
-          boxplotggplot(class =class,score =score,names=names,
+          boxplotggplot(class =class,score =score,names=names,threshold=threshold,
                         graph = graph)
     }
     else if(type=="points"){
@@ -684,7 +688,8 @@ bestmodel<-function(tabdecouv,tabval,parameters){
     tabselect1<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
     if(sum(!colnames(tabNAstructure)%in%colnames(tabselect))!=0){
       colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]}
-    tabselect<-tabselect1}
+    tabselect<-tabselect1
+    }
   }
   if(parameters$log==TRUE) {
     tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
@@ -924,17 +929,16 @@ testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
   test<-vector()
   if(modeltype=="svm"){
   if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$fitted)}
+    print(paste("ber mod :",bermod))
   if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$decision.values)))}
   for(i in 1:length(lessimportantevar)){
     tabdiff2<-tab[,-lessimportantevar[i]]
     resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)
     if(criterionmodel=="accuracy"){test[i]<-resmodeldiff$tot.accuracy-model$tot.accuracy}
     if(criterionmodel=="BER"){
-      print(bermod)
-      print(BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted))
-      test[i]<-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)-bermod}
+      print(paste("Ber test :",BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted) ))
+      test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted)}
     if(criterionmodel=="auc"){
-      print(auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values))))
       test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values)))-aucmod}
     }}
     if(modeltype=="randomforest"){
@@ -945,17 +949,15 @@ testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
         resmodeldiff <-randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T,trace=T)
     if(criterionmodel=="accuracy"){test[i]<-mean(resmodeldiff$confusion[,3])-mean(model$confusion[,3])}
     if(criterionmodel=="BER"){
-      print(bermod)
-      print(BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted))
-      test[i]<-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)-bermod}
+      test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)}
     if(criterionmodel=="auc"){
-      print(auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1]))))
       test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1])))-aucmod}
     }
     }
-  print(test)
+  print(paste("test :",max(test)))
   if(max(test)>=0){num<-lessimportantevar[which(test==max(test))[1]]}
   else(num<-0)
+  print(paste( "num", num))
   return(num)
 } 
 
@@ -991,8 +993,8 @@ selectedfeature<-function(model,modeltype,tab,criterionimportance,criterionmodel
     tabdiff2<-tabdiff2[,-rmvar]
     if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)}
     if (modeltype=="randomforest"){model <- randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T)}
-    rmvar<-testmodel(model=model,modeltype = modeltype,tab=tabdiff2
-                     ,criterionimportance = criterionimportance,criterionmodel = criterionmodel)
+    rmvar<-testmodel(model=model,modeltype = modeltype,tab=tabdiff2,
+                     criterionimportance = criterionimportance,criterionmodel = criterionmodel)
   }
   res<-list("dataset"=tabdiff2,"model"=model)
   return(res)

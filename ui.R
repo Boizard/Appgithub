@@ -16,7 +16,9 @@ shinyUI(fluidPage(
                       radioButtons("analysis","",c("new analysis","previous analysis"),inline=T),
                         conditionalPanel( condition="input.analysis=='previous analysis' ",     
                         fileInput("modelfile",label=h4("previous analysis"),accept=".RData")), 
-              conditionalPanel( condition="input.analysis=='new analysis' ",     
+              conditionalPanel( condition="input.analysis=='new analysis' ",
+                                fluidRow(column(12,br(),radioButtons("filetype", "Extention of the file",
+                                                                     c("csv" = "csv", "xlsx ou xls" = "xlsx")))),
                         fluidRow( column(12,conditionalPanel(condition ="input.help",
                                                              helpText("Learning file is obligatory to continue")),
                                          fileInput("learningfile", label = h4("learning File"),
@@ -27,8 +29,7 @@ shinyUI(fluidPage(
                                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",".xls",".xlsx")) )
                             
                         ),
-                        fluidRow(column(12,br(),radioButtons("filetype", "Extention of the file",
-                                                   c("csv" = "csv", "xlsx ou xls" = "xlsx")))),
+                        
                         fluidRow(
                           column(6,textInput('dec', 'character for decimal point',value = "." )),
                           column(6,textInput("NAstring", label = "characters for missing values",value = "NA"))),   

@@ -87,7 +87,9 @@ shinyServer(function(input, output,session) {
   })
   
   DATA<-reactive({ 
+    print(paste("first",is.null(input$learningfile)&is.null(input$modelfile)))
     if(is.null(input$learningfile)&is.null(input$modelfile)){return()}#Pas de fichier
+    
     if(!is.null(input$modelfile) ){
       load(file = input$modelfile$datapath)
       previous<<-state
@@ -95,11 +97,23 @@ shinyServer(function(input, output,session) {
       tabval<-previous$data$VALIDATION
       lev<-previous$data$LEVELS
     }
+    
     if(!is.null(input$learningfile)  ){
       if(input$confirmdatabutton==0){
         datapath<- input$learningfile$datapath
-        tablearn<<-importfile(datapath = datapath,extension = input$filetype,
-                          NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
+        out<<-tryCatch(
+          importfile(datapath = datapath,extension = input$filetype,
+                            NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
+          ,error=function(e) e )
+        print(class(out))
+        if(any(class(out)=="error")){tablearn<-data.frame()}
+        else{tablearn<<-out}
+        print(is.null(tablearn))
+        validate(need(ncol(tablearn)>1 & nrow(tablearn)>1,"problem import"))
+        
+#           tablearn<<-importfile(datapath = datapath,extension = input$filetype,
+#                          NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
+
         if(input$changedata){
           tablearn<<-transformdata(toto = tablearn,nrownames=input$nrownames,ncolnames=input$ncolnames,
                               transpose=input$transpose,zeroegalNA=input$zeroegalNA)
@@ -117,9 +131,13 @@ shinyServer(function(input, output,session) {
       
       if(input$confirmdatabutton==0){
         datapathV<- input$validationfile$datapath
+        out<<-tryCatch(importfile(datapath = datapathV,extension = input$filetype,
+                            NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep),error=function(e) e)
+        if(any(class(out)=="error")){tabval<-NULL}
+        else{tabval<<-out}
+        #print(class(out)=="error")
+        #validate(need(ncol(tabval)>1 & nrow(tabval)>1,"problem import"))
         
-        tabval<<-importfile(datapath = datapathV,extension = input$filetype,
-                            NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
         if(input$changedata){
           tabval<<-transformdata(toto = tabval,nrownames=input$nrownames,ncolnames=input$ncolnames,
                                 transpose=input$transpose,zeroegalNA=input$zeroegalNA)
@@ -131,7 +149,8 @@ shinyServer(function(input, output,session) {
       }
     }
     #else{tabval<-NULL}
-
+    print(is.null(tablearn))
+    print("######################")
      list(LEARNING=tablearn, 
           VALIDATION=tabval,
           LEVELS=lev)
@@ -162,7 +181,9 @@ shinyServer(function(input, output,session) {
   #dataTable output
   #####
   output$JDDlearn=renderDataTable({
-    learning<-DATA()$LEARNING
+    learning<<-DATA()$LEARNING
+    print(paste("plot",!is.null(learning)))
+    validate(need(!is.null(learning),"problem import"))
     colmin<-min(ncol(learning),100)
     rowmin<-min(nrow(learning),100)
     cbind(Names=rownames(learning[1:rowmin,1:colmin]),learning[1:rowmin,1:colmin])},
@@ -178,6 +199,7 @@ shinyServer(function(input, output,session) {
   
   output$JDDval=renderDataTable({
     vali<-DATA()$VALIDATION
+    validate(need(!is.null(vali),"problem import"))
     colmin<-min(ncol(vali),100)
     rowmin<-min(nrow(vali),100)
     cbind(Names=rownames(vali[1:rowmin,1:colmin]),vali[1:rowmin,1:colmin])},
@@ -336,7 +358,7 @@ shinyServer(function(input, output,session) {
   output$downloaddataheatmap <- downloadHandler(
     filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
     content = function(file) {
-      downloaddataset(heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=F,graph=F), file)
+      downloaddataset(heatmapplot(toto =TRANSFORMDATA(),nbclass=0,ggplot = T,scale=F,graph=F), file)
     }
   )
   
@@ -765,7 +787,7 @@ tabparameters <- eventReactive(input$tunetest, {
 
   print(nrow(resparameters))
   for (i in 1:nrow(resparameters)){
-    print(i)
+    print(paste("para",i))
     resmodel[i,]<-bestmodel(tabdecouv = learning ,tabval = validation ,parameters=resparameters[i,] )
   }
 
