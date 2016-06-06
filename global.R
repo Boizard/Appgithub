@@ -127,7 +127,6 @@ replaceproptestNA<-function(toto,threshold=0.05,rempNA,maxvaluesgroupmin=100,min
     resp<-resproptest[vecond,]
     totopropselect<-data.frame(toto[,vecond])
     colnames(totopropselect)<-resp$names
-    #print(heatmapNA(totopropselect[, order(resp[,2])],names = paste(class,1:length(class)))            )
     #rempNA des 0
     if(replacezero){
     for (i in 1:ncol(totopropselect)){
@@ -374,7 +373,6 @@ heatmapplot<-function(toto,nbclass=0,ggplot=T,maintitle="Heatmap of the transfor
   if(nbclass>0){
     quant<-quantile(toto,probs=seq(0,1,length=nbclass+1))
   }
-  print(5555555)
   if(!graph){return(toto)}
   if(!ggplot){
     if (nbclass==0){
@@ -520,7 +518,7 @@ barplottest<-function(restest,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="
   moy[seq(from=2,to=length(meta),by = 2)]<-restest[,6]
   data<-data.frame(meta,categ,pval,logFC,moy)
   data<-data[order(data$pval),]
-  if(!graph){return(data[(which(data$pval==TRUE)& (data$logFC==TRUE)),])}
+  if(!graph){return(data[which((data$pval==TRUE)& (data$logFC==TRUE)),])}
   else{
       ggplot(data[which( ( data$pval) & (data$logFC) ),], aes(meta, moy,fill=categ))+geom_bar(stat="identity", position="dodge")+ 
       ggtitle(maintitle)+theme(plot.title=element_text( size=15))}
@@ -929,14 +927,14 @@ testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
   test<-vector()
   if(modeltype=="svm"){
   if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$fitted)}
-    print(paste("ber mod :",bermod))
+    #print(paste("ber mod :",bermod))
   if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$decision.values)))}
   for(i in 1:length(lessimportantevar)){
     tabdiff2<-tab[,-lessimportantevar[i]]
     resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)
     if(criterionmodel=="accuracy"){test[i]<-resmodeldiff$tot.accuracy-model$tot.accuracy}
     if(criterionmodel=="BER"){
-      print(paste("Ber test :",BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted) ))
+      #print(paste("Ber test :",BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted) ))
       test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted)}
     if(criterionmodel=="auc"){
       test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values)))-aucmod}
@@ -954,10 +952,10 @@ testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
       test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1])))-aucmod}
     }
     }
-  print(paste("test :",max(test)))
+  #print(paste("test :",max(test)))
   if(max(test)>=0){num<-lessimportantevar[which(test==max(test))[1]]}
   else(num<-0)
-  print(paste( "num", num))
+  #print(paste( "num", num))
   return(num)
 } 
 

@@ -87,7 +87,7 @@ shinyServer(function(input, output,session) {
   })
   
   DATA<-reactive({ 
-    print(paste("first",is.null(input$learningfile)&is.null(input$modelfile)))
+    #print(paste("first",is.null(input$learningfile)&is.null(input$modelfile)))
     if(is.null(input$learningfile)&is.null(input$modelfile)){return()}#Pas de fichier
     
     if(!is.null(input$modelfile) ){
@@ -105,10 +105,8 @@ shinyServer(function(input, output,session) {
           importfile(datapath = datapath,extension = input$filetype,
                             NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
           ,error=function(e) e )
-        print(class(out))
         if(any(class(out)=="error")){tablearn<-data.frame()}
         else{tablearn<<-out}
-        print(is.null(tablearn))
         validate(need(ncol(tablearn)>1 & nrow(tablearn)>1,"problem import"))
         
 #           tablearn<<-importfile(datapath = datapath,extension = input$filetype,
@@ -135,8 +133,7 @@ shinyServer(function(input, output,session) {
                             NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep),error=function(e) e)
         if(any(class(out)=="error")){tabval<-NULL}
         else{tabval<<-out}
-        #print(class(out)=="error")
-        #validate(need(ncol(tabval)>1 & nrow(tabval)>1,"problem import"))
+        validate(need(ncol(tabval)>1 & nrow(tabval)>1,"problem import"))
         
         if(input$changedata){
           tabval<<-transformdata(toto = tabval,nrownames=input$nrownames,ncolnames=input$ncolnames,
@@ -149,8 +146,6 @@ shinyServer(function(input, output,session) {
       }
     }
     #else{tabval<-NULL}
-    print(is.null(tablearn))
-    print("######################")
      list(LEARNING=tablearn, 
           VALIDATION=tabval,
           LEVELS=lev)
@@ -182,7 +177,7 @@ shinyServer(function(input, output,session) {
   #####
   output$JDDlearn=renderDataTable({
     learning<<-DATA()$LEARNING
-    print(paste("plot",!is.null(learning)))
+    #print(paste("plot",!is.null(learning)))
     validate(need(!is.null(learning),"problem import"))
     colmin<-min(ncol(learning),100)
     rowmin<-min(nrow(learning),100)
@@ -322,11 +317,14 @@ shinyServer(function(input, output,session) {
     if(input$NAstructure){
       NAstructure<<-NASTRUCT()$NAstructuressNA
       if(!is.null(NAstructure)){
-        if (!colnames(NAstructure)%in%colnames(tabselect)!=0){
-      tabselect1<-cbind(tabselect,NAstructure[,!colnames(NAstructure)%in%colnames(tabselect)])
-      colnames(tabselect1)[(numcol+1):ncol(tabselect1)]<-colnames(NAstructure)[!colnames(NAstructure)%in%colnames(tabselect)]
-      tabselect<-tabselect1
-        }
+        tabselect1<-tabselect
+        colnamesin<-colnames(NAstructure)[colnames(NAstructure)%in%colnames(tabselect)]
+        colnamesout<-colnames(NAstructure)[!colnames(NAstructure)%in%colnames(tabselect)]
+        
+        if( length(colnamesin)!=0 )
+          { tabselect[,colnamesin]<-NAstructure[,colnamesin]}
+        if( length(colnamesout)!=0 )
+        { tabselect<-cbind(tabselect,NAstructure[,colnamesout]) }
       }
     } 
     if(input$log) { 
@@ -346,7 +344,7 @@ shinyServer(function(input, output,session) {
   })
   output$downloadplotheatmap = downloadHandler(
     filename = function() { 
-      paste('graph','.',input$paramdownplot, sep='') 
+      paste0('graph','.',input$paramdownplot, sep='') 
     },
     content = function(file) {
       ggsave(file, plot =    heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=F), 
@@ -466,7 +464,9 @@ shinyServer(function(input, output,session) {
     #Learning
     if(input$model!="nomodel"){
         if(input$test=="notest"){learning<-TRANSFORMDATA()}
-        else{learning<-TEST()$tabdiff}
+        else{learning<<-TEST()$tabdiff}
+      colnames(learning)[1]<-"class"
+      
       validate(need(ncol(learning)!=0,"No select dataset"))
         if(input$invers){
             learning[,1]<-factor(learning[,1],levels = rev(levels(learning[,1])),ordered = TRUE)
@@ -497,10 +497,9 @@ shinyServer(function(input, output,session) {
     }   
 
         if(input$model=="svm"){
-            colnames(learning)[1]<-"class"
             
          model <- best.tune(svm,class ~ ., data = learning,cross=10 )   
-            
+
             if(input$fs){
 #               x<-as.matrix(learning[,-1])
 #               y<-((as.numeric(learning[,1])-1)*2)-1
@@ -537,7 +536,8 @@ shinyServer(function(input, output,session) {
 
     if (input$adjustval){
     #Validation
-        tabval<-DATA()$VALIDATION
+        tabval<<-DATA()$VALIDATION
+        colnames(tabval)[1]<-"class"
         tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(learning))]
         if(input$log) { 
           tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
@@ -587,6 +587,7 @@ shinyServer(function(input, output,session) {
     if(sum(lev==(levels(classval)))==0){
       classval<-factor(classval,levels = rev(levels(classval)),ordered = TRUE)
     }
+
     #levels(predictclassval)<-paste("test",levels(predictclassval),sep="")
     levels(predictclassval)<-paste("test",lev,sep="")
     resmodelvalidation<-data.frame(classval,scoreval,predictclassval)
@@ -598,6 +599,7 @@ shinyServer(function(input, output,session) {
     else{
       validation<-list()
     }
+
     listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"NAstructure"=input$NAstructure,
                                "thresholdNAstructure"=input$thresholdNAstructure,"structdata"=input$structdata,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax,
                                "rempNA"=input$rempNA,"log"=input$log,"scaled"=input$scaled,
@@ -787,7 +789,7 @@ tabparameters <- eventReactive(input$tunetest, {
 
   print(nrow(resparameters))
   for (i in 1:nrow(resparameters)){
-    print(paste("para",i))
+    print(i)
     resmodel[i,]<-bestmodel(tabdecouv = learning ,tabval = validation ,parameters=resparameters[i,] )
   }
 
