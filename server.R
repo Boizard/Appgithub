@@ -1,21 +1,8 @@
-
-######################################################
 options(shiny.maxRequestSize=60*1024^2) 
 source("global.R")
-tablearn<<-data.frame()    
-tabval<<-NULL
-lev<<-vector()
-#tabdiff<<-data.frame()
-testdiffdata<<-data.frame()
-shinyServer(function(input, output,session) {    
 
-  #boot output
-  #####
-#   observe({
-#     if(!is.null(input$filestate)    ){
-#       return(!is.null(input$learningfile))
-#     }
-#   })
+shinyServer(function(input, output,session) {
+  
   output$modelUploaded <- reactive({
     return(!is.null(input$modelfile))
   })
@@ -26,13 +13,22 @@ shinyServer(function(input, output,session) {
   })
   outputOptions(output, 'fileUploaded', suspendWhenHidden=FALSE)
   
-
   output$image1<-renderImage({return (list(src="pictures/Logo I2MC.jpg", 
                                            contentType="image/jpeg",
+                                           width=300,
+                                           height=200,
                                            alt="I2MC logo"))},deleteFile = F)
-  output$namefilelearn<-renderText({
-    namelearn<-input$learningfile$name
-  })
+  output$image2<-renderImage({return (list(src="pictures/renalfibrosis.jpg", 
+                                           contentType="image/jpeg",
+                                           width=400,
+                                           height=200,
+                                           alt="RFlab logo"))},deleteFile = F)
+  output$image3<-renderImage({return (list(src="pictures/structurdata2.jpg", 
+                                           contentType="image/jpeg",
+                                           width=600,
+                                           height=300,
+                                           alt="structure data"))},deleteFile = F)
+
   output$fileUploadedval <- reactive({
     return( !is.null(DATA()$VALIDATION))
   })
@@ -43,33 +39,131 @@ shinyServer(function(input, output,session) {
   })
   outputOptions(output, 'modelUploadedval', suspendWhenHidden=FALSE)
   
+#Save state#############  
+  state <- reactiveValues()
+  observe({
+    importparameters<<-list("learningfile"=input$learningfile,"validationfile"=input$validationfile,"modelfile"=input$modelfile,"extension" = input$filetype,
+                            "NAstring"=input$NAstring,"sheetn"=input$sheetn,"skipn"=input$skipn,"dec"=input$dec,"sep"=input$sep,
+                            "transpose"=input$transpose,"zeroegalNA"=input$zeroegalNA,confirmdatabutton=input$confirmdatabutton)
+    
+    selectdataparameters<<-list("prctvalues"=input$prctvalues,"selectmethod"=input$selectmethod,"NAstructure"=input$NAstructure,"structdata"=input$structdata,
+                                "thresholdNAstructure"=input$thresholdNAstructure,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax)
+    
+    transformdataparameters<<-list("log"=input$log,"standardization"=input$standardization,"arcsin"=input$arcsin,"rempNA"=input$rempNA)
+    
+    
+    testparameters<<-list("SFtest"=input$SFtest,"test"=input$test,"adjustpval"=input$adjustpv,"thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC)
+    
+    modelparameters<<-list("modeltype"=input$model,"invers"=input$invers,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
+    parameters<-list("importparameters"=importparameters,"selectdataparameters"=selectdataparameters,
+                     "transformdataparameters"=transformdataparameters,"testparameters"=testparameters,"modelparameters"=modelparameters)
+    data<-DATA()
+#     model<-MODEL()
+#     if(input$NAstructure){varstructure<-colnames(NASTRUCT()$NAstructure)}
+#     else{varstructure<-NULL}
+    isolate(state<<-list("parameters"=parameters,"data"=data)) #,"model"=model,"varstructure"=varstructure))
+  })
+  
+  output$savestate <- downloadHandler(
+    filename <- function(){
+      paste("model.RData")
+    },
+    content = function(file) { 
+      save(state, file = file)
+    }
+  )
   observe({
     if(input$confirmdatabutton!=0 & !is.null(input$modelfile)){
-      updateNumericInput(session, "prctNA", value = previous$parameters$prctNA)
-      updateCheckboxInput(session ,"NAgroup",value=previous$parameters$NAgroup)
-      updateRadioButtons(session,"restrict",selected =  previous$parameters$restrict)
-      updateCheckboxInput(session ,"NAstructure",value=previous$parameters$NAstructure)
-      updateNumericInput(session, "thresholdNAstructure", value = previous$parameters$thresholdNAstructure)
-      updateRadioButtons(session,"structdata",selected=previous$parameters$structdata)
-      updateNumericInput(session, "maxvaluesgroupmin", value = previous$parameters$maxvaluesgroupmin)
-      updateNumericInput(session, "minvaluesgroupmax", value = previous$parameters$minvaluesgroupmax)
-      updateRadioButtons(session,"rempNA",selected=previous$parameters$rempNA)
-      updateCheckboxInput(session ,"log",value=previous$parameters$log)
-      updateCheckboxInput(session ,"scaled",value=previous$parameters$scaled)
-      updateRadioButtons(session,"test",selected=previous$parameters$test)
-      updateNumericInput(session, "thresholdFC", value = previous$parameters$thresholdFC)
-      updateNumericInput(session, "thresholdpv", value = previous$parameters$thresholdpv)
-      updateCheckboxInput(session ,"adjustpval",value=previous$parameters$adjustpval)
-      updateRadioButtons(session,"model",selected=previous$parameters$model)
-      updateNumericInput(session, "thresholdmodel", value = previous$parameters$thresholdmodel)
-      updateCheckboxInput(session ,"fs",value=previous$parameters$fs)
-      updateCheckboxInput(session ,"adjustval",value=previous$parameters$adjustval)
+      updateNumericInput(session, "prctvalues", value = DATA()$previousparameters$selectdataparameters$prctvalues)
+      updateRadioButtons(session,"selectmethod",selected =  DATA()$previousparameters$selectdataparameters$selectmethod)
+      updateCheckboxInput(session ,"NAstructure",value=DATA()$previousparameters$selectdataparameters$NAstructure)
+      updateRadioButtons(session,"structdata",selected=DATA()$previousparametersselectdataparameters$parameters$structdata)
+      updateNumericInput(session, "maxvaluesgroupmin", value = DATA()$previousparametersselectdataparameters$parameters$maxvaluesgroupmin)
+      updateNumericInput(session, "minvaluesgroupmax", value = DATA()$previousparametersselectdataparameters$parameters$minvaluesgroupmax)
+      updateNumericInput(session, "thresholdNAstructure", value = DATA()$previousparameters$selectdataparameters$thresholdNAstructure)
+      
+      updateRadioButtons(session,"rempNA",selected=DATA()$previousparameters$transformdataparameters$rempNA)
+      updateCheckboxInput(session ,"log",value=DATA()$previousparameterstransformdataparameters$parameters$log)
+      updateCheckboxInput(session ,"standardization",value=DATA()$previousparameters$transformdataparameters$standardization)
+      updateCheckboxInput(session ,"arcsin",value=DATA()$previousparameters$transformdataparameters$arcsin)
+      
+      updateRadioButtons(session,"test",selected=DATA()$previousparameters$testparameters$test)
+      updateNumericInput(session, "thresholdFC", value = DATA()$previousparameterstestparameters$parameters$thresholdFC)
+      updateNumericInput(session, "thresholdpv", value = DATA()$previousparameterstestparameters$parameters$thresholdpv)
+      updateCheckboxInput(session ,"adjustpval",value=DATA()$previousparameterstestparameters$parameters$adjustpval)
+      updateCheckboxInput(session ,"SFtest",value=DATA()$previousparameterstestparameters$parameters$SFtest)
+      
+      updateRadioButtons(session,"model",selected=DATA()$previousparameters$modelparameters$modeltype)
+      updateNumericInput(session, "thresholdmodel", value = DATA()$previousparameters$modelparameters$thresholdmodel)
+      updateCheckboxInput(session ,"fs",value=DATA()$previousparameters$modelparameters$fs)
+      updateCheckboxInput(session ,"adjustval",value=DATA()$previousparameters$modelparameters$adjustval)
+      updateCheckboxInput(session ,"invers",value=DATA()$previousparameters$modelparameters$invers)
       
     }
+  })
+  
+  statetable<-reactive({
+ 
+    table<-matrix(data = "",nrow = 20,ncol=11)
+    table[1,1:9]<-c("#","Extensionfile","decimal character","separator character","NA string","sheet number","skip lines","consider NA as 0","transpose")
+    table[2,1:9]<-c("import parameters",input$learningfile$type,input$dec,input$sep,input$NAstring,
+                         input$sheetn,input$skipn,input$zeroegalNA,input$transpose)
+    table[3,]<-c("#","name learning file", "number of rows", "number of columns", paste("number of ",levels(DATA()$LEARNING[,1])[1]),
+             paste("number of ",levels(DATA()$LEARNING[,1])[2]),"name validation file", "number of rows", "number of columns", paste("number of ",levels(DATA()$VALIDATION[,1])[1]),
+             paste("number of ",levels(DATA()$VALIDATION[,1])[2]))
+    table[4,]<-c("main results",input$learningfile$name,dim(DATA()$LEARNING)[1],dim(DATA()$LEARNING)[2],nll(sum(DATA()$LEARNING[,1]==levels(DATA()$LEARNING[,1])[1])),
+                 nll(sum(DATA()$LEARNING[,1]==levels(DATA()$LEARNING[,1])[2])),nll(input$validationfile$name),nll(dim(DATA()$VALIDATION)[1]),
+                 nll(dim(DATA()$VALIDATION)[2]),nll(sum(DATA()$VALIDATION[,1]==levels(DATA()$VALIDATION[,1])[1])),
+                 nll(sum(DATA()$VALIDATION[,1]==levels(DATA()$VALIDATION[,1])[2])))
+    table[5,1:8]<-c("#","percentage of values minimum","method of selection","select features structured","search structur in",
+                     "threshold p-value of proportion test", "maximum % values of the min group","minimum % values of the max group")
+    table[6,1:8]<-c("select parameters",selectdataparameters[[1]],selectdataparameters[[2]],selectdataparameters[[3]],
+                    selectdataparameters[[4]],selectdataparameters[[5]],selectdataparameters[[6]],selectdataparameters[[7]])
+    table[7,1:3]<-c("#","number of feature selected","number of feature stuctured")
+    table[8,1:3]<-c("main results",dim(SELECTDATA()$LEARNINGSELECT)[2]-1,nll(dim(SELECTDATA()$STRUCTUREDFEATURES)[2]))
+    table[9,1:5]<-c("#","remplace NA by","transformation log","strandardisation","arcsin transformation")
+    table[10,1:5]<-c("transform parameters",transformdataparameters[[4]],transformdataparameters[[1]],transformdataparameters[[2]],transformdataparameters[[3]])
+    table[11,1]<-c("#")
+    table[12,1]<-c("main results")
+    table[13,1:5]<-c("#","test","use Bonferroni adjustment","threshold of significativity","Fold change threshold")
+    table[14,1:5]<-c("test parameters",input$test,input$adjustpv,input$thresholdpv,input$thresholdFC)
+    table[15,1:2]<-c("#","number of differently expressed features")
+    table[16,1:2]<-c("main results",dim(TEST()$LEARNINGDIFF)[2]-1)
+    
+    if(input$model!="nomodel"){
+      table[17,1:6]<-c("#","model type","cut-off of the model","feature selection","apply model on validation","invers groups")
+      table[18,1:6]<-c("model parameters",input$model,input$thresholdmodel,input$fs,input$adjustval,input$invers)
+      table[19,1:8]<-c("#","number of features","AUC learning","sensibility learning","specificity learning","AUC validation","sensibility validation","specificity validation")
+      line20<<-c("main results",dim(MODEL()$DATALEARNINGMODEL$learningmodel)[2]-1,
+                 as.numeric(auc(roc(MODEL()$DATALEARNINGMODEL$reslearningmodel$classlearning,MODEL()$DATALEARNINGMODEL$reslearningmodel$scorelearning))),
+                 sensibility(MODEL()$DATALEARNINGMODEL$reslearningmodel$predictclasslearning,MODEL()$DATALEARNINGMODEL$reslearningmodel$classlearning),
+                 specificity(MODEL()$DATALEARNINGMODEL$reslearningmodel$predictclasslearning,MODEL()$DATALEARNINGMODEL$reslearningmodel$classlearning),
+                 as.numeric(auc(roc(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval))),
+                 sensibility(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$predictclassval),
+                 specificity(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$predictclassval)
+      )
+      table[20,1:8]<-c("main results",dim(MODEL()$DATALEARNINGMODEL$learningmodel)[2]-1,
+                  as.numeric(auc(roc(MODEL()$DATALEARNINGMODEL$reslearningmodel$classlearning,MODEL()$DATALEARNINGMODEL$reslearningmodel$scorelearning))),
+                  sensibility(MODEL()$DATALEARNINGMODEL$reslearningmodel$predictclasslearning,MODEL()$DATALEARNINGMODEL$reslearningmodel$classlearning),
+                  specificity(MODEL()$DATALEARNINGMODEL$reslearningmodel$predictclasslearning,MODEL()$DATALEARNINGMODEL$reslearningmodel$classlearning),
+                  as.numeric(auc(roc(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval))),
+                  sensibility(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$predictclassval),
+                  specificity(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$predictclassval)
+                  )
+    }
+    return(table)
+    
   }) 
-  #####
-  #Slidebar2output
-  ######
+  
+  output$savestatetable<- downloadHandler(
+    filename = function() { paste('settingstable', '.',input$paramdowntable, sep='') },
+    content = function(file) {
+      downloaddataset(   statetable(), file,cnames=F,rnames=F) })
+  
+############
+  output$namefilelearn<-renderText({
+    namelearn<-input$learningfile$name
+  })
   output$dim1learn<-renderText({
     di1<-dim(x = DATA()$LEARNING)[1]  
   })
@@ -84,100 +178,29 @@ shinyServer(function(input, output,session) {
   })
   output$dim2val<-renderText({
     di2<-dim(x = DATA()$VALIDATION)[2]  
+  })  
+
+  #si erreur envoyé pb import
+  DATA<-reactive({
+     importparameters<<-list("learningfile"=input$learningfile,"validationfile"=input$validationfile,"modelfile"=input$modelfile,"extension" = input$filetype,
+                            "NAstring"=input$NAstring,"sheetn"=input$sheetn,"skipn"=input$skipn,"dec"=input$dec,"sep"=input$sep,
+                            "transpose"=input$transpose,"zeroegalNA"=input$zeroegalNA,confirmdatabutton=input$confirmdatabutton)
+
+     out<-tryCatch(importfunction(importparameters),error=function(e) e )
+#      if(any(class(out)=="error"))print("error")
+#      else{resimport<-out}
+     validate(need(any(class(out)!="error"),"error import"))
+     resimport<-out
+      #resimport<-importfunction(importparameters)
+    list(LEARNING=resimport$learning, 
+         VALIDATION=resimport$validation,
+        previousparameters=resimport$previousparameters  
+#          LEVELS=resimport$lev
+         )
   })
   
-  DATA<-reactive({ 
-    #print(paste("first",is.null(input$learningfile)&is.null(input$modelfile)))
-    if(is.null(input$learningfile)&is.null(input$modelfile)){return()}#Pas de fichier
-    
-    if(!is.null(input$modelfile) ){
-      load(file = input$modelfile$datapath)
-      previous<<-state
-      tablearn<-previous$data$LEARNING
-      tabval<-previous$data$VALIDATION
-      lev<-previous$data$LEVELS
-    }
-    
-    if(!is.null(input$learningfile)  ){
-      if(input$confirmdatabutton==0){
-        datapath<- input$learningfile$datapath
-        out<<-tryCatch(
-          importfile(datapath = datapath,extension = input$filetype,
-                            NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
-          ,error=function(e) e )
-        if(any(class(out)=="error")){tablearn<-data.frame()}
-        else{tablearn<<-out}
-        validate(need(ncol(tablearn)>1 & nrow(tablearn)>1,"problem import"))
-        
-#           tablearn<<-importfile(datapath = datapath,extension = input$filetype,
-#                          NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep)
-
-        if(input$changedata){
-          tablearn<<-transformdata(toto = tablearn,nrownames=input$nrownames,ncolnames=input$ncolnames,
-                              transpose=input$transpose,zeroegalNA=input$zeroegalNA)
-        }
-
-      }
-      if(input$confirmdatabutton!=0){
-        tablearn<<-confirmdata(toto = tablearn)
-        lev<-levels(x = tablearn[,1])
-        names(lev)<-c("positif","negatif")
-        lev<<-lev
-      }
-    }
-    if(!is.null(input$validationfile)  ){
-      
-      if(input$confirmdatabutton==0){
-        datapathV<- input$validationfile$datapath
-        out<<-tryCatch(importfile(datapath = datapathV,extension = input$filetype,
-                            NAstring=input$NAstring,sheet=input$sheetn,skiplines=input$skipn,dec=input$dec,sep=input$sep),error=function(e) e)
-        if(any(class(out)=="error")){tabval<-NULL}
-        else{tabval<<-out}
-        validate(need(ncol(tabval)>1 & nrow(tabval)>1,"problem import"))
-        
-        if(input$changedata){
-          tabval<<-transformdata(toto = tabval,nrownames=input$nrownames,ncolnames=input$ncolnames,
-                                transpose=input$transpose,zeroegalNA=input$zeroegalNA)
-        }
-        
-      }
-      if(input$confirmdatabutton!=0){
-        tabval<<-confirmdata(toto = tabval)
-      }
-    }
-    #else{tabval<-NULL}
-     list(LEARNING=tablearn, 
-          VALIDATION=tabval,
-          LEVELS=lev)
-    })
-  state <- reactiveValues()
-  observe({
-    parameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"NAstructure"=input$NAstructure,
-                           "thresholdNAstructure"=input$thresholdNAstructure,"structdata"=input$structdata,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax,
-                           "rempNA"=input$rempNA,"log"=input$log,"scaled"=input$scaled,
-                           "test"=input$test,"thresholdFC"=input$thresholdFC,"thresholdpv"=input$thresholdpv,"adjustpval"=input$adjustpv,
-                           "model"=input$model,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
-    data<-DATA()
-    model<-MODEL()
-    if(input$NAstructure){varstructure<-colnames(NASTRUCT()$NAstructure)}
-    else{varstructure<-NULL}
-    isolate(state<<-list("parameters"=parameters,"data"=data,"model"=model,"varstructure"=varstructure))
-  })
-  
-  output$savestate <- downloadHandler(
-    filename <- function(){
-      paste("model.RData")
-    },
-    content = function(file) { 
-      save(state, file = file)
-    }
-  )
-  #####
-  #dataTable output
-  #####
   output$JDDlearn=renderDataTable({
-    learning<<-DATA()$LEARNING
-    #print(paste("plot",!is.null(learning)))
+    learning<-DATA()$LEARNING
     validate(need(!is.null(learning),"problem import"))
     colmin<-min(ncol(learning),100)
     rowmin<-min(nrow(learning),100)
@@ -193,11 +216,11 @@ shinyServer(function(input, output,session) {
   
   
   output$JDDval=renderDataTable({
-    vali<-DATA()$VALIDATION
-    validate(need(!is.null(vali),"problem import"))
-    colmin<-min(ncol(vali),100)
-    rowmin<-min(nrow(vali),100)
-    cbind(Names=rownames(vali[1:rowmin,1:colmin]),vali[1:rowmin,1:colmin])},
+    validation<-DATA()$VALIDATION
+    validate(need(!is.null(validation),"problem import"))
+    colmin<-min(ncol(validation),100)
+    rowmin<-min(nrow(validation),100)
+    cbind(Names=rownames(validation[1:rowmin,1:colmin]),validation[1:rowmin,1:colmin])},
     options = list(    "orderClasses" = F,
                        "responsive" = F,
                        "pageLength" = 10)) 
@@ -206,731 +229,426 @@ shinyServer(function(input, output,session) {
     filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
     content = function(file) {
       downloaddataset(   DATA()$VALIDATION, file) })
-  
-#####  
-  SELECTDATA<-reactive({
-  validate(need(input$prctNA>=0 &input$prctNA<=100,"%  NA has to be between 0 and 100"))
-  tabdecouv<-DATA()$LEARNING
-  restrict<-as.logical(input$restrict)
-  tabselect<-selectprctNA(tabdecouv,input$prctNA,group=input$NAgroup,restrictif =restrict)
 
-  })
+
+#################
+SELECTDATA<-reactive({
+  selectdataparameters<<-list("prctvalues"=input$prctvalues,"selectmethod"=input$selectmethod,"NAstructure"=input$NAstructure,"structdata"=input$structdata,
+                              "thresholdNAstructure"=input$thresholdNAstructure,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax)
+  validate(need(selectdataparameters$prctvalues>=0 &selectdataparameters$prctvalues<=100,"%  NA has to be between 0 and 100"))
+  validate(need(input$minvaluesgroupmax>=0 &input$minvaluesgroupmax<=100 & input$maxvaluesgroupmin>=0 &input$maxvaluesgroupmin<=100,"% threshold has to be between 0 and 100"),
+           need(input$thresholdNAstructure>0,input$thresholdNAstructure<1,"threshold of the pvalue has to be between 0 and 1"))
+  learning<<-DATA()$LEARNING
+  validate(need(input$confirmdatabutton!=0,"Importation of datas has to be confirmed"))
+  
+  validate(need(length(levels(learning[,1]))==2,"number of groups is not equal to 2"))
+  resselectdata<-selectdatafunction(learning = learning,selectdataparameters = selectdataparameters)
+  list(LEARNINGSELECT=resselectdata$learningselect,STRUCTUREDFEATURES=resselectdata$structuredfeatures,DATASTRUCTUREDFEATURES=resselectdata$restestNAstructure,selectdataparameters)
+})
 #####
 #Selection Output
 #####
-  output$heatmapNA<-renderPlot({
-    tabselect<-SELECTDATA()
-    heatmapNA(toto =tabselect[,-1], names =paste(tabselect[,1],1:length(tabselect[,1])))
-    #plot(x = (tabselect[,2:3]))
-  })
-  output$downloadplotheatmapNA = downloadHandler(
-    filename = function() { 
-      paste('graph','.',input$paramdownplot, sep='') 
-    },
+  output$downloaddataselect<- downloadHandler(
+    filename = function() { paste('Dataselect', '.',input$paramdowntable, sep='') },
     content = function(file) {
-      ggsave(file, plot =    heatmapNA(toto =tabselect[,-1], names =paste(tabselect[,1],1:length(tabselect[,1]))), 
-             device = input$paramdownplot)
-
-    },
-    contentType=NA)
-  
-  output$downloaddataheatmapNA <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(SELECTDATA(), file)
-    }
-  )
-
-  output$plotNA<-renderPlot({
-    tabselect<-SELECTDATA()
-    tablearn<-DATA()$LEARNING
-    distributionNA(toto = tablearn,prctNAselect = input$prctNA/100,nvar = ncol(tabselect) ,ggplot =  T)  
-    })
-  
-  output$nvarselect<-renderText({
-    di1<-dim(x = SELECTDATA())[2]-1  
-  })
-  
-  output$downloadplotNA = downloadHandler(
-    filename = function() { 
-      paste('graph','.',input$paramdownplot, sep='') 
-    },
-    content = function(file) {
-      ggsave(file, plot =        distributionNA(toto = DATA()$LEARNING,prctNAselect = input$prctNA/100,nvar = ncol(SELECTDATA()) ,ggplot =  T), 
-             device = input$paramdownplot)
-    },
-    contentType=NA)
-  
-  output$downloaddataplotNA <- downloadHandler( 
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(distributionNA(toto = DATA()$LEARNING,prctNAselect = input$prctNA/100,nvar = ncol(SELECTDATA()),graph=F)  , file)
+      downloaddataset(SELECTDATA()$LEARNINGSELECT, file)
     }
   )
   
-  
-  NASTRUCT<-reactive({
-    validate(need(input$minvaluesgroupmax>=0 &input$minvaluesgroupmax<=100 & input$maxvaluesgroupmin>=0 &input$maxvaluesgroupmin<=100,"% threshold has to be between 0 and 100"),
-             need(input$thresholdNAstructure>0,input$thresholdNAstructure<1,"threshold of the pvalue has to be between 0 and 1"))
-    if(input$structdata=="alldata"){tabdecouv<-DATA()$LEARNING}
-    if(input$structdata=="selecteddata"){tabdecouv<-SELECTDATA()}
-
-    NAstructuressNA<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
-                              maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero = T)
-    NAstructure<-replaceproptestNA(toto = tabdecouv,threshold = input$thresholdNAstructure ,rempNA ="moygr",
-                              maxvaluesgroupmin=input$maxvaluesgroupmin,minvaluesgroupmax=input$minvaluesgroupmax,replacezero=F)
-    list(NAstructuressNA=NAstructuressNA,NAstructure=NAstructure)
-  })
-    
-  
-  output$heatmapNAstructure<-renderPlot({
-    class<-DATA()$LEARNING[,1]
-    NAstructure<-NASTRUCT()$NAstructure
-    heatmapNA(toto=NAstructure,names = paste(class,1:length(class)))            
-    #else{errorplot(text = " No NA's structure")}
+  output$nvarselect=renderText({
+    di1<-dim(x = SELECTDATA()$LEARNINGSELECT)[2]-1  
   })
   
-  output$downloadstructur = downloadHandler(
-    filename = function() { 
-      paste('graph','.',input$paramdownplot, sep='') 
-    },
-    content = function(file) {
-      ggsave(file, plot = heatmapNA(NASTRUCT()$NAstructwithoutzero,names = paste(DATA()$LEARNING[,1],1:length(DATA()$LEARNING[,1]))), 
-             device = input$paramdownplot)
-    },
-    contentType=NA)
-  
-  output$downloaddatastructur <- downloadHandler( 
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(heatmapNA(NASTRUCT()$NAstructwithoutzero,names = paste(DATA()$LEARNING[,1],1:length(DATA()$LEARNING[,1])),graph=F), file)
-    }
-  )
-#####  
-  TRANSFORMDATA<-reactive({
-    tabselect<<-SELECTDATA()
-    numcol<-ncol(tabselect)
-    validate(need(numcol>0,"No select dataset"))
-    if(input$rempNA=="pca"){
-    validate(need(min(apply(X = tabselect,MARGIN = 2,FUN = function(x){sum(!is.na(x))}))>1,"not enough data for pca estimation"))
-    }
-    if(input$NAstructure){
-      NAstructure<<-NASTRUCT()$NAstructuressNA
-      if(!is.null(NAstructure)){
-        tabselect1<-tabselect
-        colnamesin<-colnames(NAstructure)[colnames(NAstructure)%in%colnames(tabselect)]
-        colnamesout<-colnames(NAstructure)[!colnames(NAstructure)%in%colnames(tabselect)]
-        
-        if( length(colnamesin)!=0 )
-          { tabselect[,colnamesin]<-NAstructure[,colnamesin]}
-        if( length(colnamesout)!=0 )
-        { tabselect<-cbind(tabselect,NAstructure[,colnamesout]) }
-      }
-    } 
-    if(input$log) { 
-    tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
-    if(input$scaled){
-      tabselect[,-1]<-scale(tabselect[,-1], center = F, scale = TRUE)
-    }
-
-    tabselectssNA<-replaceNA(toto=tabselect,rempNA=input$rempNA,pos=F,NAstructure = F)
-
-  })  
-  
-  output$plotheatmaptransformdata<-renderPlot({
-    selectdata<-TRANSFORMDATA()
-
-  heatmapplot(toto =selectdata,nbclass=0,ggplot = T,scale=F)
-  })
-  output$downloadplotheatmap = downloadHandler(
-    filename = function() { 
-      paste0('graph','.',input$paramdownplot, sep='') 
-    },
-    content = function(file) {
-      ggsave(file, plot =    heatmapplot(toto =TRANSFORMDATA(),nbclass=input$nbclassvalues,ggplot = T,scale=F), 
-             device = input$paramdownplot)
-      
-    },
-    contentType=NA)
-  
-  output$downloaddataheatmap <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(heatmapplot(toto =TRANSFORMDATA(),nbclass=0,ggplot = T,scale=F,graph=F), file)
-    }
-  )
-  
-  output$plotmds<-renderPlot({
-    selectdata<-TRANSFORMDATA()
-    mdsplot(toto = selectdata,ggplot=T)
-  })
-  output$downloadplotmds = downloadHandler(
-    filename = function() { 
-      paste('graph','.',input$paramdownplot, sep='') 
-    },
-    content = function(file) {
-      ggsave(file, plot =        mdsplot(toto = TRANSFORMDATA(),ggplot=T),  device = input$paramdownplot)
-    },
-    contentType=NA)
-  
-  output$downloaddatamds <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(    mdsplot(toto = TRANSFORMDATA(),ggplot=T,graph=F), file)
-    }
-  )
-#####
-  TEST<-reactive({
-    tabselectssNA<<-TRANSFORMDATA()
-    #condition tests
-    if (input$SFtest){
-      datatesthypothesis<-conditiontest(tabselectssNA,shaptest=T,Ftest=T,threshold=0.05)
-    }
-    else{datatesthypothesis<-data.frame()}
-    #diff test
-    if(input$test=="notest"){tabdiff<-tabselectssNA}
-    else{
-        datatest<-diffexptest(toto = tabselectssNA,test = input$test ,adjustpval=input$adjustpv)
-    #differential expressed          
-        datatestdiff<-datatest[which( (datatest$pval<input$thresholdpv)&(abs(datatest$logFC)>input$thresholdFC )),]
-        if(dim(datatestdiff)[1]==0){
-            print("no differentially expressed variables")
-            tabdiff<<-data.frame()
-      }
-        else{
-            indvar<-(colnames(tabselectssNA)%in%datatestdiff$nom)
-            indvar[1]<-T #keep the categorial variable
-            tabdiff<<-tabselectssNA[,indvar]
-        }
-    }
-    list("tabdiff"=tabdiff,"testdiffdata"=datatest,"hypothesistest"=datatesthypothesis)
-  })
-#####
-#Output test
-#####
-  output$plottest1 <- renderPlot({
-    testdiffdata<-TEST()$testdiffdata
-    volcanoplot(toto = testdiffdata ,thresholdFC = input$thresholdFC,thresholdpv = (input$thresholdpv ) )
-  })
-  output$downloadplottest1 = downloadHandler(
-    filename = function() {paste('graph','.',input$paramdownplot, sep='')},
-    content = function(file) {
-      ggsave(file, plot = volcanoplot(toto = TEST()$testdiffdata ,
-            thresholdFC = input$thresholdFC,thresholdpv = (input$thresholdpv ) ),  device = input$paramdownplot)},
-    contentType=NA)
-  output$nvarselect2<-renderText({
-    di1<-dim(x = SELECTDATA())[2]-1  
-  })  
-  output$nbdiff<-renderText({
-    nbdiff = ncol(TEST()$tabdiff)-1
-  })
-    
-  output$downloaddatatest1 <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   volcanoplot(toto = TEST()$testdiffdata ,thresholdFC = input$thresholdFC,
-                                    thresholdpv = (input$thresholdpv ),graph=F ), file) })
-  
-  output$plottest2 <- renderPlot({
-    tabdiff<-TEST()$tabdiff
-    testdiffdata<-TEST()$testdiffdata
-    if(nrow(tabdiff)!=0){barplottest(restest = testdiffdata,thresholdpv=input$thresholdpv,thresholdFC=input$thresholdFC)}
-    else{errorplot(text = " No differently expressed ")}
-    
-  })
-  output$downloadplottest2 = downloadHandler(
-    filename = function() {paste('graph','.',input$paramdownplot, sep='')},
-    content = function(file) {
-      ggsave(file, plot = barplottest(restest = TEST()$testdiffdata,thresholdpv=input$thresholdpv,thresholdFC=input$thresholdFC),  device = input$paramdownplot)},
-    contentType=NA)
-  output$downloaddatatest2 <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   barplottest(restest = TEST()$testdiffdata,
-                              thresholdpv=input$thresholdpv,thresholdFC=input$thresholdFC,graph=F ), file) })
-  
-  output$dataconditiontest=renderDataTable({
-    hypothesistest<-TEST()$hypothesistest},options = list("orderClasses" = F,
-                                                                "responsive" = F,
-                                                                "pageLength" = 10))
-  output$plottestcondition=renderPlot({
-    hypothesistest<-TEST()$hypothesistest   
-    barplottestcond(hypothesistest)
-  })
-  
-#####
-  MODEL<-reactive({
-    #Modelisation 
-    #Learning
-    if(input$model!="nomodel"){
-        if(input$test=="notest"){learning<-TRANSFORMDATA()}
-        else{learning<<-TEST()$tabdiff}
-      colnames(learning)[1]<-"class"
-      
-      validate(need(ncol(learning)!=0,"No select dataset"))
-        if(input$invers){
-            learning[,1]<-factor(learning[,1],levels = rev(levels(learning[,1])),ordered = TRUE)
-        }
-      
-      lev<-levels(x = learning[,1])
-      names(lev)<-c("positif","negatif")
-
-    #Build model
-        if (input$model=="randomforest"){
-            set.seed(20011203)
-            model <<- randomForest(learning[,-1],learning[,1],ntree=500,
-                            importance=T,keep.forest=T)
-            if(input$fs){
-              featureselect<-selectedfeature(model=model,modeltype = "randomforest",tab=tabdiff,
-                                             criterionimportance = "fscore",criterionmodel = "BER")
-              model<-featureselect$model
-              learning<-featureselect$dataset
-            }
-            scoredecouv =data.frame(model$votes[,lev["positif"]])
-            colnames(scoredecouv)<-paste(lev[1],"/",lev[2],sep="")
-            predictclassdecouv<-factor(levels = lev) 
-            predictclassdecouv[which(scoredecouv>=input$thresholdmodel)]<-lev["positif"]
-            predictclassdecouv[which(scoredecouv<input$thresholdmodel)]<-lev["negatif"]
-            predictclassdecouv<-as.factor(predictclassdecouv)
-            #predictclassdecouv==model$predicted
-            
-    }   
-
-        if(input$model=="svm"){
-            
-         model <- best.tune(svm,class ~ ., data = learning,cross=10 )   
-
-            if(input$fs){
-#               x<-as.matrix(learning[,-1])
-#               y<-((as.numeric(learning[,1])-1)*2)-1
-#               scad<- svm.fs(x, y=y, fs.method="scad", bounds=NULL,
-#                             cross.outer= 0, grid.search = "interval",  maxIter = 100,
-#                             inner.val.method = "cv", cross.inner= 5, maxevals=500,
-#                             seed=123, parms.coding = "log2", show="none", verbose=FALSE )
-#               length(scad$model$xind)
-#               learning<-learning[,c(1,scad$model$xind+1)]
-              featureselect<-selectedfeature(model=model,modeltype = "svm",tab=tabdiff,criterionimportance = "fscore",criterionmodel = "BER")
-              model<-featureselect$model
-              learning<-featureselect$dataset
-            }
-            scoredecouv <-model$decision.values
-            if(sum(lev==(strsplit(colnames(scoredecouv),split = "/")[[1]]))==0){
-              scoredecouv<-scoredecouv*(-1)
-              colnames(scoredecouv)<-paste(lev[1],"/",lev[2],sep="")
-              }
-                
-            colnames(scoredecouv)
-            predictclassdecouv<-factor(levels = lev) 
-            predictclassdecouv[which(scoredecouv>=input$thresholdmodel)]<-lev["positif"]
-            predictclassdecouv[which(scoredecouv<input$thresholdmodel)]<-lev["negatif"]
-            predictclassdecouv<-as.factor(predictclassdecouv)
-
-           
-            }
-      #levels(predictclassval)<-paste("test",levels(predictclassdecouv),sep="")
-    levels(predictclassdecouv)<-paste("test",lev,sep="")
-    classdecouv<-learning[,1]
-    resmodeldecouv<-data.frame(classdecouv,scoredecouv,predictclassdecouv)
-    colnames(resmodeldecouv) <-c("classdecouv","scoredecouv","predictclassdecouv") 
-    decouverte<-list("decouvdiff"=learning,"resmodeldecouv"=resmodeldecouv)
-
-    if (input$adjustval){
-    #Validation
-        tabval<<-DATA()$VALIDATION
-        colnames(tabval)[1]<-"class"
-        tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(learning))]
-        if(input$log) { 
-          tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
-        if(input$scaled){
-          tabvaldiff[,-1]<-scale(tabvaldiff[,-1], center = F, scale = TRUE)
-        }
-        #NAstructure if NA ->0
-        if(input$NAstructure){
-        varstructure<-colnames(NASTRUCT()$NAstructure)
-        tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
-        }
-        #merge learning tabvaldiff
-        alldata<-rbind(tabvaldiff,learning)
-        if(input$rempNA=="moygr"){ 
-            print("impossible de remplacer les NA par la moy par group pour la validation")
-          tabvaldiffssNA<-replaceNA(toto = alldata,rempNA ="moy")        }
-        
-        else{tabvaldiffssNA<-replaceNA(toto = alldata,rempNA =input$rempNA)}
-
-    #prediction a partir du model
-    validation<-tabvaldiffssNA[1:nrow(tabvaldiff),-1]
-    if(input$model=="randomforest"){
-      scoreval <-predict(object=model,type="prob",newdata = validation)[,lev["positif"]]
-      predictclassval<-vector(length = length(scoreval) ) 
-      predictclassval[which(scoreval>=input$thresholdmodel)]<-lev["positif"]
-      predictclassval[which(scoreval<input$thresholdmodel)]<-lev["negatif"]
-      predictclassval<-as.factor(predictclassval)
-
-    }
-
-    if(input$model=="svm"){
-      scoreval =attr(predict(model,newdata =  validation,decision.values=T),"decision.values")
-      if(sum(lev==(strsplit(colnames(scoreval),split = "/")[[1]]))==0){scoreval<-scoreval*(-1)}
-      
-      colnames(scoreval)
-      predictclassval<-vector(length = length(scoreval) ) 
-      predictclassval[which(scoreval>=input$thresholdmodel)]<-lev["positif"]
-      predictclassval[which(scoreval<input$thresholdmodel)]<-lev["negatif"]
-      predictclassval<-as.factor(predictclassval)
- 
-    }
-
-    if(sum(lev==(levels(predictclassval)))==0){
-      predictclassval<-factor(predictclassval,levels = rev(levels(predictclassval)),ordered = TRUE)
-    }
-    classval<- tabvaldiff[,1]
-    if(sum(lev==(levels(classval)))==0){
-      classval<-factor(classval,levels = rev(levels(classval)),ordered = TRUE)
-    }
-
-    #levels(predictclassval)<-paste("test",levels(predictclassval),sep="")
-    levels(predictclassval)<-paste("test",lev,sep="")
-    resmodelvalidation<-data.frame(classval,scoreval,predictclassval)
-    colnames(resmodelvalidation) <-c("classval","scoreval","predictclassval") 
-    auc<-auc(roc(as.vector(classval), as.vector(scoreval)))
-    validation<-list("selectdata"=tabvaldiff,"validationdiff"=validation,"resmodelvalidation"=resmodelvalidation,"auc"=auc)
-
-    }
-    else{
-      validation<-list()
-    }
-
-    listparameters<-data.frame("prctNA"=input$prctNA,"NAgroup"=input$NAgroup,"restrict"=input$restrict,"NAstructure"=input$NAstructure,
-                               "thresholdNAstructure"=input$thresholdNAstructure,"structdata"=input$structdata,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax,
-                               "rempNA"=input$rempNA,"log"=input$log,"scaled"=input$scaled,
-                          "test"=input$test,"thresholdFC"=input$thresholdFC,"thresholdpv"=input$thresholdpv,"adjustpval"=input$adjustpv,
-                          "model"=input$model,"thresholdmodel"=input$thresholdmodel,"adjustval"=input$adjustval)
-    res<<-list("decouverte"=decouverte,"model"=model,"validation"=validation,"groups"=lev,"parameters"=listparameters)
-    }
-  })
-
-  observe({
-    if (input$model=="svm") { updateNumericInput(session, "thresholdmodel", value = 0)} 
-    else if (input$model=="randomforest"){  updateNumericInput(session, "thresholdmodel", value = 0.5)}
-  })
-
-
-  output$downloaddatalearning <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   MODEL()$decouverte$decouvdiff, file) })
-  
-  
-  output$plotmodeldecouvroc <- renderPlot({
-    res<-MODEL()
-    ROCcurve(validation = res$decouverte$resmodeldecouv$classdecouv,decisionvalues = res$decouverte$resmodeldecouv$scoredecouv)
-  })
-  
-  output$downloadplotdecouvroc = downloadHandler(
-    filename = function() {paste('graph','.',input$paramdownplot, sep='')},
-    content = function(file) {
-      ggsave(file, plot = ROCcurve(validation = MODEL()$decouverte$resmodeldecouv$classdecouv,decisionvalues = MODEL()$decouverte$resmodeldecouv$scoredecouv),  device = input$paramdownplot)},
-    contentType=NA)
-  
-  output$downloaddatadecouvroc <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   ROCcurve(validation = MODEL()$decouverte$resmodeldecouv$classdecouv,decisionvalues = MODEL()$decouverte$resmodeldecouv$scoredecouv,graph=F ), file) })
-  
-  output$plotmodeldecouvbp <- renderPlot({
-    res<-MODEL()
-    scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
-                   threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T)
+output$heatmapNA<-renderPlot({
+  learningselect<-SELECTDATA()$LEARNINGSELECT
+  heatmapNA(toto =learningselect)
 })
-  output$downloadplotmodeldecouvbp = downloadHandler(
-    filename = function() {paste('graph','.',input$paramdownplot, sep='')},
-    content = function(file) {
-      ggsave(file, plot =scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
-                                        threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T),  device = input$paramdownplot)},
-    contentType=NA)
-  
-  output$downloaddatamodeldecouvbp <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   scoremodelplot(class =res$decouverte$resmodeldecouv$classdecouv ,score =res$decouverte$resmodeldecouv$scoredecouv,names=rownames(res$decouverte$resmodeldecouv),
-                                        threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
-  output$nbselectmodel<-renderText({
-    ncol(MODEL()$decouverte$decouvdiff)-1
-  })
-  
-  output$tabmodeldecouv<-renderTable({
-    res<-MODEL()
-    as.data.frame.matrix(table(res$decouverte$resmodeldecouv$predictclassdecouv,res$decouverte$resmodeldecouv$classdecouv ))
-  })
-  output$sensibilitydecouv<-renderText({
-    res<-MODEL()
-    data<-table(res$decouverte$resmodeldecouv$predictclassdecouv,res$decouverte$resmodeldecouv$classdecouv )
-    round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
-  })
-  output$positif<-renderText({
-    res<-MODEL()$groups[1]
-  })
-  output$negatif<-renderText({
-    lev<-MODEL()$groups[2]
-  })
-  output$specificitydecouv<-renderText({
-    res<-MODEL()
-    data<-table(res$decouverte$resmodeldecouv$predictclassdecouv,res$decouverte$resmodeldecouv$classdecouv )
-    round(data[2,2]/(data[1,2]+data[2,2]),digit=3)
-  })
-  
-  
-  output$downloaddatavalidation <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   MODEL()$validation$validationdiff, file) })
-    
-    
-  output$plotmodelvalroc <- renderPlot({
-    res<-MODEL()
-    ROCcurve(validation =  res$validation$resmodelvalidation$classval,decisionvalues =  res$validation$resmodelvalidation$scoreval)
-  })
-  output$downloadplotvalroc = downloadHandler(
-    filename = function() {paste('graph','.',input$paramdownplot, sep='')},
-    content = function(file) {
-    ggsave(file, plot =ROCcurve(validation =  res$validation$resmodelvalidation$classval,decisionvalues =  res$validation$resmodelvalidation$scoreval),  device = input$paramdownplot)},
-    contentType=NA)
-  
-  output$downloaddatavalroc <- downloadHandler(
-    filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-    content = function(file) {
-      downloaddataset(   ROCcurve(validation =res$validation$resmodelvalidation$classval,decisionvalues =  res$validation$resmodelvalidation$scoreval,graph=F ), file) })
-  
-    output$plotmodelvalbp <- renderPlot({
-      res<-MODEL()
-      scoremodelplot(class =res$validation$resmodelvalidation$classval ,score =res$validation$resmodelvalidation$scoreval,names=rownames(res$validation$resmodelvalidation),
-                     threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T)
-
-    })
-    output$downloadplotmodelvalbp = downloadHandler(
-      filename = function() {paste('graph','.',input$paramdownplot, sep='')},
-      content = function(file) {
-        ggsave(file, plot =scoremodelplot(class =MODEL()$validation$resmodelvalidation$classval ,score =MODEL()$validation$resmodelvalidation$scoreval,names=rownames(res$validation$resmodelvalidation),
-                                          threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T),  device = input$paramdownplot)},
-      contentType=NA)
-    
-    output$downloaddatamodelvalbp <- downloadHandler(
-      filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
-      content = function(file) {
-        downloaddataset(   scoremodelplot(class =MODEL()$validation$resmodelvalidation$classval ,score =MODEL()$validation$resmodelvalidation$scoreval,names=rownames(res$validation$resmodelvalidation),
-                                          threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
-      
-    
-    output$tabmodelval<-renderTable({ 
-        res<-MODEL()
-        as.data.frame.matrix(table(res$validation$resmodelvalidation$predictclassval, res$validation$resmodelvalidation$classval))
-      })
-    output$sensibilityval<-renderText({
-      res<-MODEL()
-      data<-table(res$validation$resmodelvalidation$predictclassval, res$validation$resmodelvalidation$classval)
-      round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
-    })
-    output$specificityval<-renderText({
-      res<-MODEL()
-      data<-table(res$validation$resmodelvalidation$predictclassval, res$validation$resmodelvalidation$classval)
-      round(data[2,2]/(data[1,2]+data[2,2]),digits=3)
-    })
-######
-output$summarymodel<-renderPrint({
-  model<-print(MODEL()$model)
-})
-output$plotimportance<-renderPlot({
-  if(input$model=="randomforest"){
-    mod<-MODEL()$model
-    var_importance<- data.frame(variable=rownames(mod$importance),
-                                importance=as.vector(mod$importance[,4]))
-    var_importance <- arrange(var_importance, desc(importance))
-    var_importance$variable <- factor(var_importance$variable, levels=var_importance$variable)
-    p <- ggplot(var_importance, aes(x=variable, weight=importance,fill=variable))
-    p + geom_bar()+coord_flip()+ylab("Variable Importance (Mean Decrease in Gini Index)")+
-      theme(legend.position="none",plot.title=element_text( size=15))+ggtitle("Importance of the variable in the model")+scale_fill_grey()
-  }
-})
-output$plotcorrelation<-renderPlot({
-  if(input$test!="iotest"){
-  tabdiff<-MODEL()$decouvert$decouvdiff
-  correlogrammapp(toto=as.matrix(tabdiff[,-1]))
-  }
-})
-output$downloadplotcorrelation = downloadHandler(
-  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+output$downloadplotheatmapNA = downloadHandler(
+  filename = function() { 
+    paste('graph','.',input$paramdownplot, sep='') 
+  },
   content = function(file) {
-    ggsave(file, plot =correlogrammapp(toto=as.matrix(MODEL()$decouvert$decouvdiff[,-1])),  device = input$paramdownplot)},
+    ggsave(file, plot =    heatmapNA(toto =SELECTDATA()$LEARNINGSELECT), 
+           device = input$paramdownplot)
+  },
+  contentType=NA)
+output$downloaddataheatmapNA <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(heatmapNA(toto =SELECTDATA()$LEARNINGSELECT,graph = F), file)
+  }
+)
+
+output$plotNA<-renderPlot({
+  learningselect<-SELECTDATA()$LEARNINGSELECT
+  learning<-DATA()$LEARNING
+  distributionvalues(toto = learning,prctvaluesselect =input$prctvalues/100,nvar = ncol(learningselect) ,ggplot =  T)  
+})
+
+
+output$downloadplotNA = downloadHandler(
+  filename = function() { 
+    paste('graph','.',input$paramdownplot, sep='') 
+  },
+  content = function(file) {
+    ggsave(file, plot =         distributionvalues(toto = DATA()$LEARNING,prctvaluesselect =input$prctvalues/100,nvar = ncol(SELECTDATA()$LEARNINGSELECT) ,ggplot =  T), 
+           device = input$paramdownplot)
+  },
   contentType=NA)
 
-output$downloaddatacorrelation<- downloadHandler(
+output$downloaddataplotNA <- downloadHandler( 
   filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
   content = function(file) {
-    downloaddataset(   correlogrammapp(toto=as.matrix(MODEL()$decouvert$decouvdiff[,-1]),graph = F), file) })
-#####
-tabparameters <- eventReactive(input$tunetest, { 
-  prctNA<-seq(input$prctNAtest[1],input$prctNAtest[2],by = 10)
-  listparameters<-list("prctNA"=prctNA,"NAgroup"=input$NAgrouptest,"restrict"=input$restricttest,"log"=input$logtest,"scaled"=input$scaledtest,
-                       "rempNA"=input$rempNAtest,"NAstructure"=input$NAstructuretest,"thresholdNAstructure"=input$thresholdNAstructuretest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
-                       "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"test"=input$testtest,"adjustpval"=input$adjustpvaltest,
-                       "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"fs"=input$fstest,"model"=input$modeltest)
-  if( sum(do.call(rbind, lapply(listparameters, FUN=function(x){as.numeric(is.null(x))})))>0){resparameters="One of the parameters is empty"}
-  else{
-  resparameters<-constructparameters(listparameters)
-  #resparameters<-resparameters[-which((resparameters$NAgroup==F)&(resparameters$restrict==T)),]
-  #resparameters<-resparameters[-which((resparameters$rempNA=="z")&(resparameters$mixt==T)),]
+    downloaddataset(distributionvalues(toto = DATA()$LEARNING,prctvaluesselect =input$prctvalues/100,nvar = ncol(SELECTDATA()$LEARNINGSELECT) ,ggplot =  T,graph = F)  , file)
   }
-  resparameters<<-classparameters(resparameters)
+)
 
-  learning<<-DATA()$LEARNING
-  validation<<-DATA()$VALIDATION
-    resmodel<-matrix(ncol=6,nrow=nrow(resparameters))
-  colnames(resmodel)=c("nbselect","nbdiff","nbselectmodel","auc","sensibilite","specificite")
-
-  print(nrow(resparameters))
-  for (i in 1:nrow(resparameters)){
-    print(i)
-    resmodel[i,]<-bestmodel(tabdecouv = learning ,tabval = validation ,parameters=resparameters[i,] )
-  }
-
-  resparameters<-cbind(resmodel,resparameters)
+output$nstructuredfeatures<-renderText({
+  ncol(SELECTDATA()$STRUCTUREDFEATURES)
+})
+output$heatmapNAstructure<-renderPlot({
+  group<<-DATA()$LEARNING[,1]
+  structuredfeatures<<-SELECTDATA()$STRUCTUREDFEATURES
+  heatmapNA(toto=cbind(group,structuredfeatures))            
+  #else{errorplot(text = " No NA's structure")}
+})
   
+output$downloadstructur = downloadHandler(
+  filename = function() { 
+    paste('graph','.',input$paramdownplot, sep='') 
+  },
+  content = function(file) {
+    ggsave(file, plot = heatmapNA(cbind(DATA()$LEARNING[,1],SELECTDATA()$STRUCTUREDFEATURES)), 
+           device = input$paramdownplot)
+  },
+  contentType=NA)
+
+output$downloaddatastructur <- downloadHandler( 
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(SELECTDATA()$STRUCTUREDFEATURES, file)
+  }
+) 
+  
+#####  
+TRANSFORMDATA<-reactive({
+  learningselect<<-SELECTDATA()$LEARNINGSELECT
+  stucturedfeatures<<-SELECTDATA()$STRUCTUREDFEATURES
+  datastructuresfeatures<<-SELECTDATA()$DATASTRUCTUREDFEATURES
+  transformdataparameters<<-list("log"=input$log,"standardization"=input$standardization,"arcsin"=input$arcsin,"rempNA"=input$rempNA)
+  validate(need(ncol(learningselect)>0,"No select dataset"))
+  if(transformdataparameters$rempNA%in%c("pca","missforest")){
+    validate(need(min(apply(X = learningselect,MARGIN = 2,FUN = function(x){sum(!is.na(x))}))>1,"not enough data for pca estimation"))
+  } 
+  learningtransform<-transformdatafunction(learningselect = learningselect,stucturedfeatures = stucturedfeatures,
+                                      datastructuresfeatures =   datastructuresfeatures,transformdataparameters = transformdataparameters)
+
+  list(LEARNINGTRANSFORM=learningtransform,transformdataparameters=transformdataparameters)
+})
+
+##
+output$downloaddatatransform<- downloadHandler(
+  filename = function() { paste('Transformdata', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(TRANSFORMDATA()$LEARNINGTRANSFORM, file)
+  }
+)
+
+output$plotheatmaptransformdata<-renderPlot({
+  learningtransform<-TRANSFORMDATA()$LEARNINGTRANSFORM
+  heatmapplot(toto =learningtransform,ggplot = T,scale=F)
+})
+
+output$downloadplotheatmap = downloadHandler(
+  filename = function() { 
+    paste0('graph','.',input$paramdownplot, sep='') 
+  },
+  content = function(file) {
+    ggsave(file, plot =    heatmapplot(toto =TRANSFORMDATA()$LEARNINGTRANSFORM,ggplot = T,scale=F), 
+           device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddataheatmap <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(heatmapplot(toto =TRANSFORMDATA()$LEARNINGTRANSFORM,ggplot = T,scale=F,graph=F), file)
   })
-output$testparameters<-renderDataTable({
-  resparameters<-tabparameters()
-  cbind(Names=rownames(resparameters),resparameters)},
-  options = list(    "orderClasses" = F,
-                     "responsive" = F,
-                     "pageLength" = 100))
+
+output$plotmds<-renderPlot({
+  learningtransform<-TRANSFORMDATA()$LEARNINGTRANSFORM
+  mdsplot(toto = learningtransform,ggplot=T)
+})
+output$downloadplotmds = downloadHandler(
+  filename = function() { 
+    paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =        mdsplot(toto = TRANSFORMDATA()$LEARNINGTRANSFORM,ggplot=T),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatamds <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(    mdsplot(toto = TRANSFORMDATA()$LEARNINGTRANSFORM,ggplot=T,graph=F), file)
+  })
 
 
-output$dataparam<-renderTable({
-  resparameters<-tabparameters()
+output$plothist<-renderPlot({
+  learningtransform<-TRANSFORMDATA()$LEARNINGTRANSFORM
+  histplot(toto=learningtransform)
+})
+output$downloadplothist = downloadHandler(
+  filename = function() { 
+    paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =         histplot(toto=TRANSFORMDATA()$LEARNINGTRANSFORM),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatahist <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(histplot(toto=TRANSFORMDATA()$LEARNINGTRANSFORM,graph=F), file)
+  })
+
+#########
+TEST<-reactive({
+  testparameters<<-list("SFtest"=input$SFtest,"test"=input$test,"adjustpval"=input$adjustpv,"thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC)
+  learningtransform<<-TRANSFORMDATA()$LEARNINGTRANSFORM
+  restest<-testfunction(learningtransform,testparameters )
+  list(LEARNINGDIFF=restest$tabdiff,DATATEST=restest$datatest,HYPOTHESISTEST=restest$hypothesistest,
+       USEDDATA=restest$useddata,testparameters=restest$testparameters)
+
+})
+##
+output$downloadddatadiff<- downloadHandler(
+  filename = function() { paste('Datadiff', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(TEST()$LEARNINGDIFF, file)
+  }
+)
+output$downloaddatastatistics<- downloadHandler(
+  filename = function() { paste('Datastatistics', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(TEST()$DATATEST, file)
+  }
+)
+output$volcanoplot <- renderPlot({
+  datatest<<-TEST()$DATATEST
+  useddata<<-TEST()$USEDDATA
+  colnames(useddata)[3]<-colnames(datatest)[5]
+  volcanoplot(logFC =useddata[,3],pval = useddata$pval,thresholdFC = input$thresholdFC,thresholdpv = (input$thresholdpv ),completedata=useddata[,1:3] )
+})
+output$downloadvolcanoplot = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot = volcanoplot(logFC =TEST()$USEDDATA$logFC,pval = TEST()$USEDDATA$pval,thresholdFC = input$thresholdFC,
+                                    thresholdpv = input$thresholdpv ,completedata=TEST()$DATATEST ) ,  device = input$paramdownplot)},
+  contentType=NA)
+output$downloaddatavolcanoplot<- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(volcanoplot(logFC =TEST()$USEDDATA$logFC,pval = TEST()$USEDDATA$pval,thresholdFC = input$thresholdFC,
+                                    thresholdpv = (input$thresholdpv ),completedata=TEST()$DATATEST,graph=F ), file) })
+output$nvarselect2<-renderText({
+  di1<-dim(x = SELECTDATA()$LEARNINGSELECT)[2]-1  
+})  
+output$nbdiff<-renderText({
+  nbdiff = ncol(TEST()$LEARNINGDIFF)-1
+})
+
+
+output$barplottest <- renderPlot({
+  learningdiff<<-TEST()$LEARNINGDIFF
+  useddata<<-TEST()$USEDDATA
+  if(nrow(learningdiff)!=0){barplottest(feature=useddata$names,logFC=useddata$logFC,levels=levels(learningdiff[,1]),pval=useddata$pval,mean1=useddata$mean1,mean2=useddata$mean2,thresholdpv=input$thresholdpv,
+                                             thresholdFC=input$thresholdFC,graph=T,maintitle="Mean by group for differentially expressed variables")
+}
+  else{errorplot(text = " No differently expressed ")}
   
 })
-output$downloaddatatestparameters <- downloadHandler(
+output$downloadbarplottest = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot = barplottest(feature=TEST()$USEDDATA$names,logFC=TEST()$USEDDATA$logFC,levels=levels(TEST()$LEARNINGDIFF[,1]),pval=TEST()$USEDDATA$pval,mean1=TEST()$USEDDATA$mean1,mean2=TEST()$USEDDATA$mean2,thresholdpv=input$thresholdpv,
+                                    thresholdFC=input$thresholdFC,graph=T,maintitle="Mean by group for differentially expressed variables"),  device = input$paramdownplot)},
+  contentType=NA)
+output$downloaddatabarplottest <- downloadHandler(
   filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
   content = function(file) {
-    downloaddataset(   tabparameters(), file ) })
+    downloaddataset(barplottest(feature=TEST()$USEDDATA$names,logFC=TEST()$USEDDATA$logFC,levels=levels(TEST()$LEARNINGDIFF[,1]),pval=TEST()$USEDDATA$pval,mean1=TEST()$USEDDATA$mean1,mean2=TEST()$USEDDATA$mean2,thresholdpv=input$thresholdpv,
+                                thresholdFC=input$thresholdFC,maintitle="Mean by group for differentially expressed variables",graph=F), file) })
+
+# output$dataconditiontest=renderDataTable({
+#   hypothesistest<-TEST()$hypothesistest},options = list("orderClasses" = F,
+#                                                         "responsive" = F,
+#                                                         "pageLength" = 10))
+output$plottestSF=renderPlot({
+  hypothesistest<-TEST()$HYPOTHESISTEST   
+  barplottestSF(hypothesistest)
+})
+output$downloadplottestSF = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =   barplottestSF(TEST()$HYPOTHESISTEST  ),  device = input$paramdownplot)},
+  contentType=NA)
+output$downloaddatatestSF <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(  barplottestSF(TEST()$HYPOTHESISTEST ,graph=F), file) })
+
+
+
+######
+MODEL<-reactive({
+
+  if(input$test=="notest"){learningmodel<<-TRANSFORMDATA()$LEARNINGTRANSFORM}
+  else{learningmodel<<-TEST()$LEARNINGDIFF}
+  validation<<-DATA()$VALIDATION
+  datastructuresfeatures<<-SELECTDATA()$DATASTRUCTUREDFEATURES
+  transformdataparameters<<-TRANSFORMDATA()$transformdataparameters
+  modelparameters<<-list("modeltype"=input$model,"invers"=input$invers,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
+  validate(need(ncol(learning)!=0,"No select dataset"))
+  
+
+  resmodel<<-modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
+                           transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures)
+  
+ list("DATALEARNINGMODEL"=resmodel$datalearningmodel,"MODEL"=resmodel$model,"DATAVALIDATIONMODEL"=resmodel$datavalidationmodel,
+      "GROUPS"=resmodel$groups,"modelparameters"=resmodel$modelparameters)
+  
+  })
+
+observe({
+  if (input$model=="svm") { updateNumericInput(session, "thresholdmodel", value = 0)} 
+  else if (input$model=="randomforest"){  updateNumericInput(session, "thresholdmodel", value = 0.5)}
+})
+
+
+output$downloaddatalearning <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(   MODEL()$DATALEARNINGMODEL$learningmodel, file) })
+
+
+output$plotmodeldecouvroc <- renderPlot({
+  datalearningmodel<<-MODEL()$DATALEARNINGMODEL
+  ROCcurve(validation = datalearningmodel$reslearningmodel$classlearning,decisionvalues =  datalearningmodel$reslearningmodel$scorelearning)
+})
+# 
+output$downloadplotdecouvroc = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =  ROCcurve(validation = datalearningmodel$reslearningmodel$classlearning,
+                                  decisionvalues =  datalearningmodel$reslearningmodel$scorelearning),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatadecouvroc <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(ROCcurve(validation = datalearningmodel$reslearningmodel$classlearning,decisionvalues =  datalearningmodel$reslearningmodel$scorelearning,graph=F), file) })
+
+output$plotmodeldecouvbp <- renderPlot({
+  datalearningmodel<<-MODEL()$DATALEARNINGMODEL
+  scoremodelplot(class =datalearningmodel$reslearningmodel$classlearning ,score =datalearningmodel$reslearningmodel$scorelearning,names=rownames(datalearningmodel$reslearningmodel),
+                 threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T)
+})
+output$downloadplotmodeldecouvbp = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =scoremodelplot(class =datalearningmodel$reslearningmodel$classlearning ,score =datalearningmodel$reslearningmodel$scorelearning,names=rownames(datalearningmodel$reslearningmodel),
+                                      threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatamodeldecouvbp <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(   scoremodelplot(class =datalearningmodel$reslearningmodel$classlearning ,score =datalearningmodel$reslearningmodel$scorelearning,names=rownames(datalearningmodel$reslearningmodel),
+                                      threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
+output$nbselectmodel<-renderText({
+  datalearningmodel<-MODEL()$DATALEARNINGMODEL
+  ncol(datalearningmodel$learningmodel)-1
+})
+
+output$tabmodeldecouv<-renderTable({
+  datalearningmodel<-MODEL()$DATALEARNINGMODEL
+  as.data.frame.matrix(table(datalearningmodel$reslearningmodel$predictclasslearning,datalearningmodel$reslearningmodel$classlearning ))
+})
+output$sensibilitydecouv<-renderText({
+  datalearningmodel<-MODEL()$DATALEARNINGMODEL
+  data<-table(datalearningmodel$reslearningmodel$predictclasslearning,datalearningmodel$reslearningmodel$classlearning)
+  round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
+})
+output$positif<-renderText({
+  res<-MODEL()$GROUPS[1]
+})
+output$negatif<-renderText({
+  lev<-MODEL()$GROUPS[2]
+})
+output$specificitydecouv<-renderText({
+  datalearningmodel<-MODEL()$DATALEARNINGMODEL
+  data<-table(datalearningmodel$reslearningmodel$predictclasslearning,datalearningmodel$reslearningmodel$classlearning )
+  round(data[2,2]/(data[1,2]+data[2,2]),digit=3)
+})
+
+
+output$downloaddatavalidation <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(  -MODEL()$DATAVALIDATIONMODEL$validationmodel, file) })
+
+
+output$plotmodelvalroc <- renderPlot({
+  datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
+  ROCcurve(validation =  datavalidationmodel$resvalidationmodel$classval,decisionvalues =  datavalidationmodel$resvalidationmodel$scoreval)
+})
+
+output$downloadplotvalroc = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =ROCcurve(validation =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,decisionvalues =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatavalroc <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(   ROCcurve(validation =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,decisionvalues =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval,graph=F ), file) })
+
+output$plotmodelvalbp <- renderPlot({
+  datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
+  scoremodelplot(class = datavalidationmodel$resvalidationmodel$classval ,score =datavalidationmodel$resvalidationmodel$scoreval,names=rownames(datavalidationmodel$resvalidationmodel),
+                 threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T)
+  
+})
+output$downloadplotmodelvalbp = downloadHandler(
+  filename = function() {paste('graph','.',input$paramdownplot, sep='')},
+  content = function(file) {
+    ggsave(file, plot =scoremodelplot(class = MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval ,score =MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval,names=rownames(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel),
+                                      threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = T),  device = input$paramdownplot)},
+  contentType=NA)
+
+output$downloaddatamodelvalbp <- downloadHandler(
+  filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
+  content = function(file) {
+    downloaddataset(   scoremodelplot(class = MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval ,score =MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval,names=rownames(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel),
+                                      threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
+
+
+output$tabmodelval<-renderTable({ 
+  datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
+  as.data.frame.matrix(table(datavalidationmodel$resvalidationmodel$predictclassval, datavalidationmodel$resvalidationmodel$classval))
+})
+output$sensibilityval<-renderText({
+  datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
+  data<-table(datavalidationmodel$resvalidationmodel$predictclassval, datavalidationmodel$resvalidationmodel$classval)
+  round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
+})
+output$specificityval<-renderText({
+  datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
+  data<-table(datavalidationmodel$resvalidationmodel$predictclassval, datavalidationmodel$resvalidationmodel$classval)
+  round(data[2,2]/(data[1,2]+data[2,2]),digits=3)
+})
 
 
 
 
-#######
-# PREDICT<-reactive({
-#   res<-MODEL()
-#   if(is.null(input$predictionfile)){return()
-#   }#Pas de fichier
-#   
-#   if(!is.null(input$predictionfile)  ){
-#     
-#     if(input$confirmdatabuttonpred==0){
-#       datapath<- input$predictionfile$datapath
-#       tabprediction<<-importfile(datapath = datapath,extension = input$filetypepred,
-#                             NAstring=input$NAstringpred,sheet=input$sheetnpred,skiplines=input$skipnpred,dec=input$decpred,sep=input$seppred)
-#       if(input$changedata){
-#         tabprediction<<-transformdata(toto = tabprediction,nrownames=input$nrownamespred,ncolnames=input$ncolnamespred,
-#                                  transpose=input$transposepred,zeroegalNA=input$zeroegalNApred)
-#       }
-#       resprediction<-data.frame()
-#       
-#     }
-#     if(input$confirmdatabuttonpred!=0){
-#       for (i in 1:ncol(tabprediction)){
-#        tabprediction[,i]<-as.numeric(as.character(tabprediction[,i]))
-#       }
-# 
-#        learning<-res$decouverte$decouvdiff
-#        select<-which(colnames(tabprediction)%in%colnames(learning))
-#        tabprediction<-tabprediction[,select]
-# 
-# 
-#        if(input$NAstructure){
-#          varstructure<-colnames(NASTRUCT()$NAstructure)
-#          for (i in 1:length(varstructure)){
-#            tabprediction[is.na(tabprediction[,varstructure[i]]),varstructure[i]]<-0 }
-#        }
-# 
-#        if(input$log) { 
-#          tabprediction<-log(x = tabprediction+1,base = 2)}
-#        if(input$scaled){
-#          tabprediction<-scale(tabprediction, center = F, scale = TRUE)
-#        }
-# 
-#        #if ( !"class"%in%colnames(tabprediction)){
-#          class<-rep(NA,times=nrow(tabprediction))
-#        tabprediction<-cbind(class,tabprediction)
-# 
-#        alldata<-rbind(tabprediction,learning)
-#      if(input$rempNA=="moygr"){ 
-#          print("impossible de remplacer les NA par la moy par group pour la validation")
-#          tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA ="moy")        }
-#        else{tabpredictionssNA<-replaceNA(toto = tabprediction,rempNA =input$rempNA)}
-#     tabprediction<-tabpredictionssNA[,-1]
-# 
-#     ######prediction
-#     lev<-res$groups
-#     model<-res$model
-#     if(input$model=="randomforest"){
-#       score <-predict(object=model,type="prob",newdata = tabprediction)[,lev["positif"]]
-#       predictclass<-vector(length = length(score) ) 
-#       predictclass[which(score>=input$thresholdmodel)]<-lev["positif"]
-#       predictclass[which(score<input$thresholdmodel)]<-lev["negatif"]
-#       predictclass<-as.factor(predictclass)
-# 
-#     }
-# 
-#     if(input$model=="svm"){
-#       score =attr(predict(model,newdata =  tabprediction,decision.values=T),"decision.values")
-#       if(sum(lev==(strsplit(colnames(score),split = "/")[[1]]))==0){score<-score*(-1)}
-#       
-#       colnames(score)
-#       predictclass<-vector(length = length(score) ) 
-#       predictclass[which(score>=input$thresholdmodel)]<-lev["positif"]
-#       predictclass[which(score<input$thresholdmodel)]<-lev["negatif"]
-#       predictclass<-as.factor(predictclass)
-# 
-#     }
-#     if(sum(lev==(levels(predictclass)))==0){
-#       predictclass<-factor(predictclass,levels = rev(levels(predictclass)),ordered = TRUE)
-#     }
-# 
-#     resprediction<<-data.frame("score"=score,"predictclass"=predictclass)
-# 
-#     colnames(resprediction)<-c("score","predictclass")
-#     }
-#   }
-#   parameters<<-res$parameters
-#   list("tab"=tabprediction,"parameters"=parameters,"resprediction"=resprediction)
-#   
-# }) 
-#  
-# #####
-# output$JDDpredict=renderDataTable({
-#   respredict<-PREDICT()
-#   predict<-PREDICT()$tab
-#   colmin<-min(ncol(predict),100)
-#   rowmin<-min(nrow(predict),100)
-#   cbind(Names=rownames(predict[1:rowmin,1:colmin]),predict[1:rowmin,1:colmin])},
-#   options = list(    "orderClasses" = F,
-#                      "responsive" = F,
-#                      "pageLength" = 10))
-# 
-# 
-# output$parameters=renderTable({
-#   parameters<-PREDICT()$parameters
-#   cbind(Names=rownames(parameters),parameters)})
-# 
-# output$resprediction=renderTable({
-#   resprediction<-PREDICT()$resprediction
-#   resprediction}) 
-# 
-# 
-# 
-# output$plotscorepred <- renderPlot({
-#   scorepredict<-PREDICT()$resprediction$score
-#   score<-MODEL()$decouverte$resmodeldecouv$scoredecouv
-#   densityscore(score,scorepredict,maintitle="Density learning's score and prediction score",threshold=input$thresholdmodel)
-#   })
+})
 
-}) 

@@ -7,9 +7,7 @@ usePackage <- function(p)
   require(p, character.only = TRUE)
 }
 usePackage("zoo")
-usePackage("FactoMineR") #PCA
 usePackage("missMDA")#imputepca
-usePackage("subselect")
 usePackage("ggplot2")#Graphs
 usePackage("stats")
 usePackage("e1071")#svm
@@ -17,7 +15,6 @@ usePackage("pROC")#roccurve
 usePackage("devtools")
 usePackage("readxl")
 usePackage("shiny")
-usePackage("plyr")
 # if (!is.element("factoextra", installed.packages()[,1]))
 #   install_github("kassambara/factoextra")
 #usePackage("factoextra")#PCA graphs
@@ -34,27 +31,31 @@ importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec="
   # datapath: path of the file
   #extention: extention of the file : csv, xls, ou xlsx
   if(extension=="csv"){
-    toto <- read.csv2(datapath,header = F,sep =sep,dec=dec,na.strings = NAstring,stringsAsFactors = F)
+    toto <- read.csv2(datapath,header = T,sep =sep,dec=dec,na.strings = NAstring,stringsAsFactors = F,row.names=1,check.names = F )
   }
   if(extension=="xlsx"){
     options(warn=-1)
-      filerm<<-file.rename(datapath,paste(datapath, ".xlsx", sep=""))
+    filerm<<-file.rename(datapath,paste(datapath, ".xlsx", sep=""))
     options(warn=0)
-   toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
+    toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = T,skip = skiplines,sheet = sheet)
     # toto <-read.xlsx2(file = datapath,sheetIndex = sheet)
     #toto <-read_excel(datapath,na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
-    
+    rnames<-as.character(as.matrix(toto[,1]))
+      toto<-toto[,-1]
+      row.names(toto)<-rnames
+      
   }
   toto<-as.data.frame(toto)
   return(toto)
 }
-downloaddataset<-function(x,file){
+
+downloaddataset<-function(x,file,cnames=T,rnames=T){
   ext<-strsplit(x = file,split = "[.]")[[1]][2]
   if(ext=="csv"){
-    write.csv2(x,file)
+    write.table(x,file,sep = ",",dec=".",col.names = cnames,row.names = rnames)
   }
   if(ext=="xlsx"){
-    write.xlsx(x,file)
+    write.xlsx(x,file,col.names = cnames,row.names =rnames )
   }
   
 }
@@ -72,38 +73,34 @@ downloadplot<-function(file){
     pdf(file) 
   }     
 }
-renamvar<-function(names){
-  #rename the duplicate name by adding ".1, .2 ....
-  #toto is a vector of the col names of the tab
-  names[is.na(names)]<-"NA"
-  for(i in 1:length(names)){
-    ind <- which(names%in%names[i])
-    if(length(ind)>1){
-      nb<-c(1:length(ind))
-      newnames<-paste(names[ind],".",nb,sep="")
-      
-      names[ind]<-newnames
-    }
-  }
-  return(names)
+# renamvar<-function(names){
+#   #rename the duplicate name by adding ".1, .2 ....
+#   #toto is a vector of the col names of the tab
+#   names[is.na(names)]<-"NA"
+#   for(i in 1:length(names)){
+#     ind <- which(names%in%names[i])
+#     if(length(ind)>1){
+#       nb<-c(1:length(ind))
+#       newnames<-paste(names[ind],".",nb,sep="")
+#       
+#       names[ind]<-newnames
+#     }
+#   }
+#   return(names)
+# }
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length=n+1)
+  hcl(h=hues, l=65, c=100)[1:n]
 }
-
-transformdata<-function(toto,nrownames=1,ncolnames=1,transpose,zeroegalNA,log){
-  if(length(which(apply(X = toto,MARGIN=1,function(x){sum(is.na(x))})==ncol(toto)))!=0){
-    toto<-toto[-which(apply(X = toto,MARGIN=1,function(x){sum(is.na(x))})==ncol(toto)),]}
-  #remove empty rows
-  if(length(which(apply(X = toto,MARGIN=2,function(x){sum(is.na(x))})==nrow(toto)))!=0){
-    toto<-toto[,-which(apply(X = toto,MARGIN=2,function(x){sum(is.na(x))})==nrow(toto))]}
-  #remove empty columns
+transformdata<-function(toto,transpose,zeroegalNA){
+#   if(length(which(apply(X = toto,MARGIN=1,function(x){sum(is.na(x))})==ncol(toto)))!=0){
+#     toto<-toto[-which(apply(X = toto,MARGIN=1,function(x){sum(is.na(x))})==ncol(toto)),]}
+#   #remove empty rows
+#   if(length(which(apply(X = toto,MARGIN=2,function(x){sum(is.na(x))})==nrow(toto)))!=0){
+#     toto<-toto[,-which(apply(X = toto,MARGIN=2,function(x){sum(is.na(x))})==nrow(toto))]}
+#   #remove empty columns
   
-  if(ncolnames!=0){
-      colnames(toto)<-renamvar(toto[ncolnames,])
-      toto<-toto[-ncolnames,]
-  }
-  if(nrownames!=0){
-      rownames(toto)<-renamvar(toto[,nrownames])
-      toto<-toto[,-nrownames]
-  }
+
   if(transpose){toto<-t(toto)}
   
   if(zeroegalNA){toto[which(toto==0,arr.ind = T)]<-NA}
@@ -112,14 +109,241 @@ transformdata<-function(toto,nrownames=1,ncolnames=1,transpose,zeroegalNA,log){
 }
 confirmdata<-function(toto){
   toto<-as.data.frame(toto)
-toto[,1]<-as.factor(as.character(toto[,1]))
-for (i in 2:ncol(toto)){
-  toto[,i]<-as.numeric(as.character(toto[,i]))
-}
-return(toto)
+  toto[,1]<-as.factor(as.character(toto[,1]))
+  for (i in 2:ncol(toto)){
+    toto[,i]<-as.numeric(as.character(toto[,i]))
+  }
+  return(toto)
 }
 
-replaceproptestNA<-function(toto,threshold=0.05,rempNA,maxvaluesgroupmin=100,minvaluesgroupmax=0,replacezero=T){
+importfunction<-function(importparameters){
+  previousparameters<-NULL
+  validation<-NULL
+  learning<-NULL
+  
+  if(is.null(importparameters$learningfile)&is.null(importparameters$modelfile)){return()}
+  
+  if(!is.null(importparameters$modelfile) ){
+    load(file = importparameters$modelfile$datapath)
+    previous<-state
+    learning<-previous$data$LEARNING
+    validation<-previous$data$VALIDATION
+    #lev<-previous$data$LEVELS
+    previousparameters<-previous$parameters
+  }
+
+  if(!is.null(importparameters$learningfile)  ){
+    #if(importparameters$confirmdatabutton==0){
+      datapath<- importparameters$learningfile$datapath
+      #out<<-tryCatch(
+      learning<-importfile(datapath = datapath,extension = importparameters$extension,NAstring=importparameters$NAstring,
+                           sheet=importparameters$sheetn,skiplines=importparameters$skipn,dec=importparameters$dec,sep=importparameters$sep)
+      #              ,error=function(e) e )
+      #            if(any(class(out)=="error")){tablearn<-data.frame()}
+      #            else{tablearn<<-out}
+      #            validate(need(ncol(tablearn)>1 & nrow(tablearn)>1,"problem import"))
+      
+      learning<-transformdata(toto = learning,transpose=importparameters$transpose,zeroegalNA=importparameters$zeroegalNA)
+      
+    #}
+    if(importparameters$confirmdatabutton!=0){
+      learning<-confirmdata(toto = learning)
+#       lev<-levels(x = tablearn[,1])
+#       print(lev)
+#       names(lev)<-c("positif","negatif")
+    }
+    # else{lev<-NULL}
+  }
+
+  
+  if(!is.null(importparameters$validationfile)  ){
+    
+    # if(importparameters$confirmdatabutton==0){
+      datapathV<- importparameters$validationfile$datapath
+      # out<<-tryCatch(
+      validation<-importfile(datapath = datapathV,extension = importparameters$extension,
+                 NAstring=importparameters$NAstring,sheet=importparameters$sheetn,skiplines=importparameters$skipn,dec=importparameters$dec,sep=importparameters$sep)
+      #             ,error=function(e) e)
+      #             if(any(class(out)=="error")){tabval<-NULL}
+      #            else{tabval<<-out}
+      #            validate(need(ncol(tabval)>1 & nrow(tabval)>1,"problem import"))
+        validation<-transformdata(toto = validation,transpose=importparameters$transpose,zeroegalNA=importparameters$zeroegalNA)
+      
+      
+    # }
+    if(importparameters$confirmdatabutton!=0){
+      validation<-confirmdata(toto = validation)
+    }
+    
+  }
+
+  res<-list("learning"=learning,"validation"=validation,previousparameters=previousparameters)#,"lev"=lev)
+  return(res)
+}
+
+
+# selectvar<-function(resPCA,toto){
+#   #select variables which are correlate to the axes correlate to the cotegorial variable of the first column
+#   restri<-dimdesc(resPCA,axes = c(1:(min(ncol(toto),10)-1)) )
+#   varquali<-vector()
+#   score<-0
+#   #restri is a dimdesc data
+#   for (i in 1:length(restri)){
+#     if ( !is.null(restri[[i]]$quali ) ) {
+#       score<-score+restri[[i]]$quali[[1]]
+#       varquali<-c(varquali,row.names(restri[[i]]$quanti))
+#     }
+#   }
+#   #score<-1- ( ( (1+score)*(nrow(toto)-1) )/(nrow(toto)-ncol(toto)-1) )
+#   return(list("varquali"=varquali,"score"=score))
+# }
+
+# selectdata<-function(toto){
+#   #remove variable  with less than 2 value and replace 0 by NA
+#   n<-ncol(toto)
+#   toto[which(toto==0 ,arr.ind = T )]<-NA
+#   vec<-rep(T,length=n)
+#   for(i in 2:n){
+#     vec[i]<-( (length(unique(toto[,i]))>2) )
+#   }
+#   #rm var with less than 3 values (0 or NA , and 2 other (important for the rempNA PCA))
+#   toto<-toto[,as.logical(vec)]
+#   return(toto)
+# }
+
+selectdatafunction<-function(learning,selectdataparameters){
+  learningselect<-selectprctvalues(toto = learning,prctvalues = selectdataparameters$prctvalues,selectmethod =selectdataparameters$selectmethod)
+  if(selectdataparameters$NAstructure==T){
+    if(selectdataparameters$structdata=="selecteddata"){learning<-learningselect}
+    restestNAstructure<-testNAstructure(toto = learning,threshold = selectdataparameters$thresholdNAstructure,maxvaluesgroupmin=selectdataparameters$maxvaluesgroupmin,
+                                        minvaluesgroupmax=selectdataparameters$minvaluesgroupmax)
+    if(!is.null(restestNAstructure)){
+      learningselect<-cbind(learningselect[,!colnames(learningselect)%in%restestNAstructure$restestNAstructure$names],restestNAstructure$varNAstructure)}
+  }
+  else{restestNAstructure<-NULL}
+  
+  return(list(learningselect=learningselect,structuredfeatures=restestNAstructure$varNAstructure,datastructuredfeatures=restestNAstructure$restestNAstructure))
+}
+
+testObject <- function(object){
+  #test if the object is in the global environnement
+  exists(as.character(substitute(object)))
+}
+
+selectprctvalues<-function(toto,prctvalues=100,selectmethod="nogroup"){ 
+  n<-ncol(toto)
+  if (selectmethod=="nogroup"){
+    NAvec<-vector(length =max(n,0) )
+    for(i in 1:n){
+      NAvec[i]<-  (sum(!is.na(toto[,i]))/nrow(toto)  ) 
+    }
+    vec<-(NAvec>=(prctvalues/100))
+    
+  } 
+  
+  if(selectmethod!="nogroup"){
+    nbcat<-length(levels(toto[,1]))
+    tabgroup<-matrix(nrow = nbcat, ncol=n )
+    for(i in 1:nbcat){
+      tab<-toto[which(toto[,1]==levels(toto[,1])[i]),]
+      for(j in 1:(n) ){
+        tabgroup[i,j]<-(sum(!is.na(tab[,j]))/nrow(tab))  
+      }  
+    }
+    if(selectmethod=="onegroup"){
+      vec<-apply(X = tabgroup,MARGIN = 2,FUN = function(x){(max (x) >= (prctvalues/100)) }) 
+    }
+    if(selectmethod=="bothgroups"){
+      vec<-apply(X = tabgroup,MARGIN = 2,FUN = function(x){(min (x) >= (prctvalues/100)) }) 
+    }
+  }
+  totoselect<-toto[,as.logical(vec)]
+}
+
+heatmapNA<-function(toto,maintitle="Distribution of NA",graph=T){
+ 
+    if(ncol(toto)==1){errorplot(text = " No structured variables")}
+    else{
+      names<- paste(toto[,1],1:length(toto[,1]))
+      tab<-as.data.frame(toto[,-1])
+      tab[which(!is.na(tab) ,arr.ind = T )]<-"Value"
+      tab[which(is.na(tab) ,arr.ind = T )]<-"NA"
+      #tab<-cbind(paste(toto[,1],1:length(toto[,1])),tab)
+      tab<-apply(tab,2,as.factor)
+      rownames(tab)<-names
+      if(!graph){ return(cbind(rownames(toto),tab))}
+      if(graph){
+      tabm <- melt(tab)
+      #tabm<-tabm[-c(1:nrow(toto)),]
+      colnames(tabm)<-c("individuals","variables","value")
+      if(ncol(toto)>60){
+        ggplot(tabm, aes(variables, individuals)) + geom_tile(aes(fill = value)) + scale_fill_manual(values=c("lightgrey","steelblue"),name="")+ 
+          ggtitle("Distribution of NA") + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
+      }
+      else{
+        ggplot(tabm, aes(variables, individuals)) + geom_tile(aes(fill = value), colour = "white") + scale_fill_manual(values=c("lightgrey","steelblue"))+ 
+          ggtitle(maintitle) + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
+      }
+    }
+  }
+}
+
+distributionvalues<-function(toto,prctvaluesselect,nvar,maintitle="Number of variables according to\nthe % of values's selected",graph=T,ggplot=T){
+  percentagevalues<-seq(0,1,by = 0.01)
+  prctall<-apply(X = toto,MARGIN = 2,FUN = function(x){sum(!is.na(x))})/nrow(toto)
+  prctvalueswhithoutgroup<-sapply(X = percentagevalues,FUN = function(x,prct=prctall){sum(x<=prct)})
+  prctlev1<-apply(X = toto[which(toto[,1]==levels(toto[,1])[1]),],MARGIN = 2,FUN = function(x){sum(!is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[1]),])
+  prctlev2<-apply(X = toto[which(toto[,1]==levels(toto[,1])[2]),],MARGIN = 2,FUN = function(x){sum(!is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[2]),])
+  
+  nvareachgroups<-sapply(X = percentagevalues,FUN = function(x,prct1=prctlev1,prct2=prctlev2){sum(x<=apply(rbind(prct1,prct2),2,min))})  
+  nvaronegroup<-sapply(X = percentagevalues,FUN = function(x,prct1=prctlev1,prct2=prctlev2){sum(x<=apply(rbind(prct1,prct2),2,max))})  
+  
+  distribvalues<-data.frame("percentagevalues"=percentagevalues,"all samples"=prctvalueswhithoutgroup,"each groups"= nvareachgroups,"at least one group"=nvaronegroup)
+  if(!graph)(return(distribvalues))
+  col<-gg_color_hue(ncol(distribvalues)-1)
+  if(!ggplot){
+    matplot(x=distribvalues$percentagevalues,distribvalues[,-1],type=c("l","l"),lty = c(1,1,1),
+            col=c("red","green","blue"), xlab="percentage of values selected",ylab="Number of variables",main=maintitle)
+    legend("bottomright",colnames(distribvalues[,-1]),col=c("red","green","blue"),lty=1)
+    abline(v = prctvaluesselect,lty=3,col="grey")
+    abline(h = nvar,lty=3,col="grey")
+  }
+  if (ggplot){
+    distribvalueslong<- melt(distribvalues,id.vars = "percentagevalues",variable.name = "select_method",value.name = "number_of_variables")  # convert to long format
+    p<-ggplot(data=distribvalueslong,
+              aes(x=percentagevalues, y=number_of_variables, colour=select_method)) +geom_line()+
+      ggtitle(maintitle)
+    p+theme(plot.title=element_text( size=15),legend.text=element_text(size=10),legend.title=element_text(color = 0),legend.position=c(0.20,0.15))+
+      geom_vline(xintercept=prctvaluesselect,linetype=3)+
+      geom_hline(yintercept=nvar,linetype=3)
+  }
+}
+
+proptestNA<-function(toto){
+  group<-toto[,1]
+  toto[,1]<-as.character(toto[,1])
+  toto[which(!is.na(toto),arr.ind=T)]<-"value"
+  toto[which(is.na(toto),arr.ind=T)]<-"NA"
+  pval<-vector("numeric",length = ncol(toto))
+  lessgroup<-vector("character",length = ncol(toto))
+  prctmore<-vector("numeric",length = ncol(toto))
+  prctless<-vector("numeric",length = ncol(toto))
+  for (i in 1:ncol(toto)){
+    conting<-table(group,factor(toto[,i],levels=c("value","NA")))
+    options(warn=-1)
+    res<-prop.test(conting)
+    options(warn=0)
+    pval[i]<-res$p.value
+    prctmore[i]<-max(res$estimate)
+    prctless[i]<-min(res$estimate)
+    if(res$estimate[1]==res$estimate[2]){ lessgroup[i]<-"NA"}
+    else{lessgroup[i]<-rownames(conting)[which(res$estimate==min(res$estimate))]}
+  }
+  pval[is.na(pval)]<-1
+  return(data.frame("pval"=pval,"lessgroup"=lessgroup,"prctless"=prctless,"prctmore"=prctmore,"names"=colnames(toto)))
+}
+
+testNAstructure<-function(toto,threshold=0.05,maxvaluesgroupmin=100,minvaluesgroupmax=0){
   class<-toto[,1]
   resproptest<-proptestNA(toto=toto)
   vecond<-c(resproptest$pval<=threshold & resproptest$prctless<=(maxvaluesgroupmin/100) & resproptest$prctmore>=(minvaluesgroupmax/100))
@@ -127,18 +351,49 @@ replaceproptestNA<-function(toto,threshold=0.05,rempNA,maxvaluesgroupmin=100,min
     resp<-resproptest[vecond,]
     totopropselect<-data.frame(toto[,vecond])
     colnames(totopropselect)<-resp$names
-    #rempNA des 0
-    if(replacezero){
-    for (i in 1:ncol(totopropselect)){
-      totopropselect[which(is.na(totopropselect[,i])&class==as.character(resp[i,"lessgroup"])),i]<-0
-    }
-    totopropselect<-as.data.frame(replaceNA(toto =cbind(class,totopropselect),rempNA = rempNA )[,-1])
-  }
+    totopropselect<-as.data.frame(totopropselect[, order(resp[,2])])
+    colnames(totopropselect)<-resp$names[order(resp[,2])]
   }
   else{return(NULL)}
-  totopropselect<-as.data.frame(totopropselect[, order(resp[,2])])
-  colnames(totopropselect)<-resp$names[order(resp[,2])]
-  return(totopropselect)
+
+  return(list("varNAstructure"=totopropselect,"restestNAstructure"=resp))
+}
+
+transformdatafunction<-function(learningselect,stucturedfeatures,datastructuresfeatures,transformdataparameters){
+  learningtransform<-replaceNA(toto=learningselect,rempNA=transformdataparameters$rempNA,pos=T,NAstructure = F)
+  if(!is.null(stucturedfeatures)){
+    for(i in 1:ncol(stucturedfeatures)){
+      learningtransform[which(is.na(stucturedfeatures[,i])&learningselect[,1]==as.character(datastructuresfeatures[i,"lessgroup"])),as.character(datastructuresfeatures[i,"names"])]<-0
+    }
+  }
+  if(transformdataparameters$log){ 
+    learningtransform[,-1]<-log(x = learningtransform[,-1]+1)}
+  if(transformdataparameters$standardization){
+    learningtransform[,-1]<-scale(learningtransform[,-1], center = F, scale = TRUE)
+  }
+  if(transformdataparameters$arcsin){
+    learningtransform[,-1]<-apply(X = learningtransform[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
+    learningtransform[,-1]<-asin(sqrt(learningtransform[,-1]))
+  }
+  return(learningtransform)}
+
+histplot<-function(toto,graph=T){
+
+    data<-data.frame("values"=as.vector(as.matrix(toto[,-1])))
+    if(graph==F){ return(datahistogram(data = data,nbclass = 20))}
+    if(graph==T){
+    ggplot(data=data,aes(x=values) )+ 
+      geom_histogram(col="lightgrey",fill="steelblue",bins=20)+ggtitle("Distribution of values")+
+      theme(plot.title = element_text(size=15))+
+       annotate("text",x=Inf,y=Inf,label=paste(nrow(data),"values"),size=6,vjust=2,hjust=1.5)
+  }
+}
+datahistogram<-function(data,nbclass){
+  dh<-hist(data[,1],nclass=nbclass,plot=F)
+  minclass<-dh$breaks[-(length(dh$breaks))]
+  maxclass<-dh$breaks[2:(length(dh$breaks))]
+  count<-dh$counts
+  res<-data.frame("count"=count,"minclass"=minclass,"maxclass"=maxclass)
 }
 
 replaceNA<-function(toto,rempNA="z",pos=F,NAstructure=F,thresholdstruct=0.05,maxvaluesgroupmin=100,minvaluesgroupmax=0){ 
@@ -195,204 +450,6 @@ replaceNA<-function(toto,rempNA="z",pos=F,NAstructure=F,thresholdstruct=0.05,max
   
   return(toto)
 }
-
-AppPCA<-function(toto,nbaxe=5,rempNA="z"){
-  
-  n<-ncol(toto)
-  toto<-replaceNA(toto = toto,rempNA = rempNA) #PCA needs too file the NA
-  
-  if(nbaxe==0){nbaxe<-estim_ncpPCA(toto[,2:n],ncp.min = 1,ncp.max = 5,method.cv ="Kfold",nbsim=10 )[[1]]}
-  #estime the best number of axes
-  resPCA<-PCA(X = toto,ncp=nbaxe, quali.sup = 1,graph = F)
-  
-  return(resPCA)
-}
-
-selectprctNA<-function(toto,prctNA=100,group=F,restrictif=F){ 
-  n<-ncol(toto)
-  if (!group){
-    NAvec<-vector(length =max(n,0) )
-    for(i in 1:n){
-      NAvec[i]<-  (sum(is.na(toto[,i]))/nrow(toto)  ) 
-    }
-    vec<-(NAvec<=(prctNA/100))
-    
-  } 
-  
-  if(group){
-    nbcat<-length(levels(toto[,1]))
-    tabgroup<-matrix(nrow = nbcat, ncol=n )
-    for(i in 1:nbcat){
-      tab<-toto[which(toto[,1]==levels(toto[,1])[i]),]
-      for(j in 1:(n) ){
-        tabgroup[i,j]<-(sum(is.na(tab[,j]))/nrow(tab))  
-      }  
-    }
-    if(!restrictif){
-    vec<-apply(X = tabgroup,MARGIN = 2,FUN = function(x){as.logical(max (x <= (prctNA/100))) }) 
-    }
-    if(restrictif){
-      vec<-apply(X = tabgroup,MARGIN = 2,FUN = function(x){as.logical(min (x <= (prctNA/100))) }) 
-    }
-  }
-  toto<-toto[,as.logical(vec)]
-}
-
-selectvar<-function(resPCA,toto){
-  #select variables which are correlate to the axes correlate to the cotegorial variable of the first column
-  restri<-dimdesc(resPCA,axes = c(1:(min(ncol(toto),10)-1)) )
-  varquali<-vector()
-  score<-0
-  #restri is a dimdesc data
-  for (i in 1:length(restri)){
-    if ( !is.null(restri[[i]]$quali ) ) {
-      score<-score+restri[[i]]$quali[[1]]
-      varquali<-c(varquali,row.names(restri[[i]]$quanti))
-    }
-  }
-  #score<-1- ( ( (1+score)*(nrow(toto)-1) )/(nrow(toto)-ncol(toto)-1) )
-  return(list("varquali"=varquali,"score"=score))
-}
-
-selectind<-function(resPCA,toto){
-  #select particular individual, by clustering with the coordinates in pca
-  #if an individual is alone in a group, he is definied as particular
-  hcpc<-HCPC(resPCA,nb.clust = 0,consol=T,iter.max=10,graph = F,max=4)
-  partind<-row.names(toto[which(hcpc$data.clust$clust %in% which( table(hcpc$data.clust$clust)==1)),])
-  return(partind)
-}
-
-
-selectdata<-function(toto){
-  #remove variable  with less than 2 value and replace 0 by NA
-  n<-ncol(toto)
-  toto[which(toto==0 ,arr.ind = T )]<-NA
-  vec<-rep(T,length=n)
-  for(i in 2:n){
-    vec[i]<-( (length(unique(toto[,i]))>2) )
-  }
-  #rm var with less than 3 values (0 or NA , and 2 other (important for the rempNA PCA))
-  toto<-toto[,as.logical(vec)]
-  return(toto)
-}
-
-
-testObject <- function(object){
-  #test if the object is in the global environnement
-  exists(as.character(substitute(object)))
-}
-
-distributionNA<-function(toto,prctNAselect,nvar,maintitle="Number of variables according to\nthe % of NA's selected",graph=T,ggplot=T){
-  #drow the NA distribution by variables
-  
-  #
-  percentageNA<-seq(0,1,by = 0.01)
-  prctall<-apply(X = toto,MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto)
-  NAwhithoutgroup<-sapply(X = percentageNA,FUN = function(x,prct=prctall){sum(x>=prct)})
-  prctlev1<-apply(X = toto[which(toto[,1]==levels(toto[,1])[1]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[1]),])
-  prctlev2<-apply(X = toto[which(toto[,1]==levels(toto[,1])[2]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[2]),])
-  
-  NApergroupmin<-sapply(X = percentageNA,FUN = function(x,prct1=prctlev1,prct2=prctlev2){sum(x>=apply(rbind(prct1,prct2),2,min))})  
-  NApergroupmax<-sapply(X = percentageNA,FUN = function(x,prct1=prctlev1,prct2=prctlev2){sum(x>=apply(rbind(prct1,prct2),2,max))})  
-
-  distribNA<<-data.frame("percentageNA"=percentageNA,"whithout groups"=NAwhithoutgroup,"both groups"= NApergroupmax,"at least one group"=NApergroupmin)
-  if(!graph)(return(distribNA))
-  col<-gg_color_hue(ncol(distribNA)-1)
-  if(!ggplot){
-    matplot(x=distribNA$percentageNA,distribNA[,-1],type=c("l","l"),lty = c(1,1,1),
-            col=c("red","green","blue"), xlab="percentage of NA selected",ylab="Number of variables",main=maintitle)
-    legend("bottomright",colnames(distribNA[,-1]),col=c("red","green","blue"),lty=1)
-    abline(v = prctNAselect,lty=3,col="grey")
-    abline(h = nvar,lty=3,col="grey")
-  }
-  if (ggplot){
-  distribNAlong<- melt(distribNA,id.vars = "percentageNA",variable.name = "select_method",value.name = "number_of_variables")  # convert to long format
-  p<-ggplot(data=distribNAlong,
-            aes(x=percentageNA, y=number_of_variables, colour=select_method)) +geom_line()+
-    ggtitle(maintitle)
-  p+theme(plot.title=element_text( size=15),legend.text=element_text(size=10),legend.title=element_text(color = 0),legend.position=c(0.75,0.15))+
-  geom_vline(xintercept=prctNAselect,linetype=3)+
-  geom_hline(yintercept=nvar,linetype=3)
-  }
-}
-boxplotNAgroup<-function(toto,maintitle="percentage of NA in variable\nseparate by group",ggplot=T,graph=T){
-  prctlev1<-apply(X = toto[which(toto[,1]==levels(toto[,1])[1]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[1]),])
-  prctlev2<-apply(X = toto[which(toto[,1]==levels(toto[,1])[2]),],MARGIN = 2,FUN = function(x){sum(is.na(x))})/nrow(toto[which(toto[,1]==levels(toto[,1])[2]),])
-  if(!graph)(return(rbind(prctlev1,prctlev2)))
-  if(!ggplot){boxplot(prctlev1,prctlev2,col=c("red","blue"),names=c(levels(toto[,1])[1],levels(toto[,1])[2]),main=maintitle)}
-  if(ggplot){
-    data<-data.frame("group"=rep(c(levels(toto[,1])[2],levels(toto[,1])[2]),each=length(prctlev1)),"prctNA"=c(prctlev1,prctlev2))
-    p<-ggplot(data, aes(x=group, y=prctNA, fill=group)) +
-      geom_boxplot()+
-      ggtitle(maintitle)+theme(plot.title=element_text( size=15))
-    p    
-    }
-}
-heatmapNA<-function(toto,maintitle="Distribution of NA",names=NULL,graph=T){
-  if(!graph){ return(toto)}
-  if(graph){
-  if(is.null(toto)){errorplot(text = " No input Data")}
-  else{
-  tab<-toto
-  tab[which(!is.na(tab) ,arr.ind = T )]<-"Value"
-  tab[which(is.na(tab) ,arr.ind = T )]<-"NA"
-  tab<-cbind(paste(toto[,1],1:length(toto[,1])),tab)
-  tab<-apply(tab,2,as.factor)
-  rownames(tab)<-names
-  tabm <- melt(tab)
-  tabm<-tabm[-c(1:nrow(toto)),]
-  colnames(tabm)<-c("individual","variables","value")
-  if(ncol(toto)>60){
-    ggplot(tabm, aes(variables, individual)) + geom_tile(aes(fill = value)) + scale_fill_manual(values=c("lightgrey","steelblue"))+ 
-      ggtitle("Distribution of NA") + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
-  }
-  else{
-    ggplot(tabm, aes(variables, individual)) + geom_tile(aes(fill = value), colour = "white") + scale_fill_manual(values=c("lightgrey","steelblue"))+ 
-      ggtitle(maintitle) + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
-  }
-  }
-  }
-}
-heatmapNAstructure<-function(toto,threshold){
-    resproptest<-proptestNA(toto=to)
-    if(sum(resproptest$pval<=threshold)==0){errorplot(text = " No NA's structure")}
-    else{
-        totopropselect<<-as.data.frame(tabdecouv[,which(resproptest$pval<=threshold)])
-        resproptest2<<-resproptest[which(resproptest$pval<=threshold),]
-        #resproptest2$lessgroup<<-as.factor(as.character(resproptest2$lessgroup))
-        heatmapNA(toto = as.data.frame(totopropselect[, order(resproptest2[,2])]),names=paste(tabdecouv[,1],1:length(tabdecouv[,1])))
-    }
-}
-
-heatmapplot<-function(toto,nbclass=0,ggplot=T,maintitle="Heatmap of the transform data ",scale=F,graph=T){
-  
-  row.names(toto)<-paste(toto[,1],1:length(toto[,1]))
-  toto<-as.matrix(toto[,-1])
-  colnames(toto)<-seq(1:ncol(toto))
-  if(scale)toto<-scale(toto, center = F, scale = TRUE)
-  if(nbclass>0){
-    quant<-quantile(toto,probs=seq(0,1,length=nbclass+1))
-  }
-  if(!graph){return(toto)}
-  if(!ggplot){
-    if (nbclass==0){
-      heatmap.2(toto,Rowv = NA,Colv=F,trace="none",dendrogram = "none",key=T,margins=c(2,4),keysize=1.30,main=maintitle)
-    }
-    else{
-      colr<-heat.colors(nbclass)
-      heatmap.2(toto,Rowv = NA,Colv=F,trace="none",dendrogram = "none",key=F,keysize = 0.65,main=maintitle,cexRow=0.75, cexCol=0.75,labCol =NA,
-                col=colr,breaks=quantile(toto,probs=seq(0,1,length=nbclass+1)))
-      legend.col(col =colr, lev = toto)
-    }
-  }
-  if(ggplot){
-    titi<-melt(toto,value.name = "Intensity")
-    colnames(titi)<-c("Individuals","Variables","Intensity")
-    if(nbclass>0)titi$Intensity<-as.numeric(as.character(cut(titi$Intensity,breaks =  unique(quant), include.lowest = TRUE,labels = 1:(length(unique(quant))-1 ))))
-    
-    ggplot(titi, aes( Variables, Individuals,fill = Intensity),colour=NA) + geom_raster()+ggtitle(maintitle)+theme(plot.title=element_text( size=15))
-  }
-}
 mdsplot<-function(toto,ggplot=T,maintitle="MDS representation of the individuals",graph=T){
   class<-toto[,1]
   toto<-toto[-1]
@@ -415,38 +472,153 @@ mdsplot<-function(toto,ggplot=T,maintitle="MDS representation of the individuals
     p + geom_text(aes(colour = class))+ggtitle(maintitle)+theme(plot.title=element_text( size=15))
   }
 }
-diffexptest<-function(toto,test="Wtest",adjustpval=F){ 
-#fonction test if the variables (in column) of toto (dataframe) are differently 
-#expressed according to the first variable (first column) (two groups : OP Tem)
+
+heatmapplot<-function(toto,ggplot=T,maintitle="Heatmap of the transform data ",scale=F,graph=T){
+  row.names(toto)<-paste(toto[,1],1:length(toto[,1]))
+  toto<-as.matrix(toto[,-1])
+  if(!graph){return(toto)}
+  #colnames(toto)<-seq(1:ncol(toto))
+  if(scale)toto<-scale(toto, center = F, scale = TRUE)
+  if(!ggplot){
+      heatmap.2(toto,Rowv = NA,Colv=F,trace="none",dendrogram = "none",key=T,margins=c(2,4),keysize=1.30,main=maintitle)
+    }
+  if(ggplot){
+    titi<-melt(toto,value.name = "Intensity")
+    colnames(titi)<-c("Individuals","Variables","Intensity")
+    titi[,2]<-as.character(titi[,2])
+    ggplot(titi, aes( Variables, Individuals,fill = Intensity),colour=NA) + geom_raster()+ggtitle(maintitle)+theme(plot.title=element_text( size=15))
+  }
+}
+
+#############
+testfunction<-function(tabtransform,testparameters){
+  #condition tests
+  if (testparameters$SFtest){
+    datatesthypothesis<-SFtest(tabtransform,shaptest=T,Ftest=T,threshold=0.05)
+  }
+  else{datatesthypothesis<-data.frame()}
+  #diff test
+  if(testparameters$test=="notest"){tabdiff<-tabtransform}
+  else{
+    datatest<-diffexptest(toto = tabtransform,test = testparameters$test )
+    #differential expressed
+    logFC<-datatest[,5]
+    if(testparameters$adjustpval){pval<-datatest[,3]}
+    if(!testparameters$adjustpval){pval<-datatest[,2]}
+    datatestdiff<-datatest[which( (pval<testparameters$thresholdpv)&abs(logFC)>testparameters$thresholdFC ),]
+    if(dim(datatestdiff)[1]==0){
+      print("no differentially expressed variables")
+      tabdiff<<-data.frame()
+    }
+    else{
+      indvar<-(colnames(tabtransform)%in%datatestdiff$name)
+      indvar[1]<-T #keep the categorial variable
+      tabdiff<<-tabtransform[,indvar]
+    }
+  useddata<-data.frame("names"=datatest[,1],"pval"=pval,"logFC"=datatest[,5],"mean1"=datatest[,8],"mean2"=datatest[,9])
+  }
+  return(list("tabdiff"=tabdiff,"datatest"=datatest,"hypothesistest"=datatesthypothesis,"useddata"=useddata,"testparameters"=testparameters))
+}
+  
+
+diffexptest<-function(toto,test="Wtest"){ 
+  #fonction test if the variables (in column) of toto (dataframe) are differently 
+  #expressed according to the first variable (first column) (two groups : OP Tem)
   #test= Ttes: porsuit a sTudent test for each column (parmetric test), the sample have to be normal and with the same variance
-        #Wtest : willcoxon test (nonparametric), assume that dispersion a on the same scale
-  x<-toto[,1]
+  #Wtest : willcoxon test (nonparametric), assume that dispersion a on the same scale
+  group<-toto[,1]
   toto<-toto[,-1]
   pval<-vector()
+  adjustpval<-vector()
   mlev1<-vector()
+  namelev1<-levels(group)[1]
   mlev2<-vector()
-  difNA<-vector()#idea see the diff of %NA between the two groups
-  FC<-vector()
-
+  namelev2<-levels(group)[2]
+  FC1o2<-vector()
+  FC2o1<-vector()
   for (i in 1:max(1,ncol(toto)) ){
-    lev1<-toto[which(x==levels(x)[1]),i]
-    lev2<-toto[which(x==levels(x)[2]),i]
+    lev1<-toto[which(group==namelev1),i]
+    lev2<-toto[which(group==namelev2),i]
     mlev1[i]<-mean(lev1,na.rm = T)+0.0001
     mlev2[i]<-mean(lev2,na.rm = T)+0.0001
     
-    FC[i]<-mlev1[i]/mlev2[i]
+    FC1o2[i]<-mlev1[i]/mlev2[i]
+    FC2o1[i]<-mlev2[i]/mlev1[i]
+    
     if( test=="Ttest"){pval[i]<-t.test(x = lev1,y = lev2)$p.value}
     else if( test=="Wtest"){pval[i]<-wilcox.test(lev1 ,lev2,exact = F)$p.value } 
   } 
-  if (adjustpval==T){ 
-    pval<-p.adjust(pval, method = "BH")}
-  logFC<-log2(abs(FC))
-  pval[which(is.na(pval))]<-1 
-  listgen<-data.frame(colnames(toto),pval,FC,logFC,mlev1,mlev2) 
-  colnames(listgen)<-c("nom","pval","FC","logFC",levels(x)[1],levels(x)[2]) 
+  pval[which(is.na(pval))]<-1
+  adjustpval<-p.adjust(pval, method = "BH")
+  logFC1o2<-log2(abs(FC1o2))
+  logFC2o1<-log2(abs(FC2o1))
+  
+  
+  listgen<-data.frame(colnames(toto),pval,adjustpval,FC1o2,logFC1o2,FC2o1,logFC2o1,mlev1,mlev2) 
+  colnames(listgen)<-c("name",paste("pval",test,sep = ""),paste("BHadjustpval",test,sep = ""),paste("FoldChange ",namelev1,"/",namelev2,sep = ""),paste("logFoldChange ",namelev1,"/",namelev2,sep = ""),
+                       paste("FoldChange ",namelev2,"/",namelev1,sep = ""),paste("logFoldChange ",namelev2,"/",namelev1,sep = ""),paste("mean",namelev1,sep = ""),paste("mean",namelev2,sep = "")) 
   return(listgen)
 } 
-conditiontest<-function(toto,shaptest=T,Ftest=T,threshold=0.05){
+
+
+volcanoplot<-function(logFC,pval,thresholdFC=0,thresholdpv=0.05,graph=T,maintitle="Volcano plot",completedata){
+  ##Highlight genes that have an absolute fold change > 2 and a p-value < Bonferroni cut-off
+  
+  threshold <- (as.numeric(abs(logFC) > thresholdFC &pval< thresholdpv ) +1)*2
+  listgen<-data.frame("logFC"=logFC,"pval"=pval,"threshold"=threshold)
+  if(!graph){return(completedata)}
+  ##Construct the plot object
+  g = ggplot(data=listgen, aes(x=logFC, y=-log10(pval))) +
+    geom_point(alpha=0.4, size=1.75, colour=threshold) +
+    theme(legend.position = "none") +
+    #xlim(c(-(max(listgen$logFC)+0.2), max(listgen$logFC)+0.2)) + ylim(c(0, max(-log10(listgen$pval))+0.2)) +
+    xlab("log2 fold change") + ylab("-log10 p-value")+
+    ggtitle(maintitle)+theme(plot.title=element_text( size=15))+
+    annotate("text",x=Inf,y=Inf,label=paste(substring(colnames(completedata)[3],first=4)),size=6,vjust=2,hjust=1.5)
+  
+  g
+} 
+
+barplottest<-function(feature,logFC,levels,pval,mean1,mean2,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="Mean by group for differentially expressed variables"){
+  feature<-rep(feature,each=2)
+  group<-rep(c(levels[1],levels[2]),times=(length(feature)/2))
+  pval2<-rep((pval< thresholdpv),each=2)
+  logFC2<-rep((abs(logFC)> thresholdFC),each=2) 
+  mean<-vector() 
+  mean[seq(from=1,to=length(feature),by = 2)]<-mean1
+  mean[seq(from=2,to=length(feature),by = 2)]<-mean2
+  data<-data.frame(feature,group,pval,logFC,mean,logFC2,pval2)
+  data<-data[order(data$pval),]
+  if(!graph){
+    data<-data[order(data[,1]),]
+  return(data[which((data$pval2==TRUE)& (data$logFC2==TRUE)),c(1,2,5)])}
+  else{
+    ggplot(data[which( ( data$pval2) & (data$logFC2) ),], aes(feature, mean,fill=group))+geom_bar(stat="identity", position="dodge")+ 
+      ggtitle(maintitle)+theme(plot.title=element_text( size=15))
+  }
+}
+errorplot<-function(text=paste("error /n","text error")){
+  plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+  text(x = 0.5, y = 0.5, text,cex = 1.6, col = "black")}
+
+barplottestSF<-function(toto,graph=T){
+  #toto: dataframe res from conditiontest function
+  if(!graph){return(toto)}
+  rescond<-vector()
+  for (i in (1:nrow(toto))){
+    if(toto$samplenorm[i]=="norm" & toto$varequal[i]!="varequal"){rescond[i]<-"norm"}
+    else if(toto$samplenorm[i]=="norm" & toto$varequal[i]=="varequal"){rescond[i]<-"both"}
+    else if( toto$samplenorm[i]!="norm" &toto$varequal[i]=="varequal"){rescond[i]<-"varequal"}
+    else{rescond[i]<-"none"}
+    
+  }
+  data<-as.factor(rescond)
+  p<-qplot(factor(data), geom="bar", fill=factor(data))
+  p+ggtitle("Repartition of the variables according to the test results")+
+    theme(plot.title=element_text(size=15))
+}
+
+SFtest<-function(toto,shaptest=T,Ftest=T,threshold=0.05){
   x<-toto[,1]
   toto<-toto[,-1]
   pvalF<-vector()
@@ -484,102 +656,157 @@ conditiontest<-function(toto,shaptest=T,Ftest=T,threshold=0.05){
       else{varequal[i]<-"varnotequal"}
     }
   }
-  if(shaptest){conditiontest<-data.frame(conditiontest,"pvalnormlev1"=pvalnormlev1,"pvalnormlev2"=pvalnormlev2,"samplenorm"=samplenorm)}
+  if(shaptest){ conditiontest<-data.frame(conditiontest,pvalnormlev1,pvalnormlev2,"samplenorm"=samplenorm)
+                colnames(conditiontest)<-c("names",paste("pvalshapiro",levels(x)[1],sep=""),paste("pvalshapiro",levels(x)[2],sep = ""),"samplenorm")
+  }
   if(Ftest){conditiontest<-data.frame(conditiontest,"pvalF"=pvalF,"variancelev1"=vlev1,"variancelev2"=vlev2,"varequal"=varequal)}
   return(conditiontest) 
-} 
-
-
-volcanoplot<-function(toto,thresholdFC=1,thresholdpv=0.05,graph=T,maintitle="Volcano plot"){
-  ##Highlight genes that have an absolute fold change > 2 and a p-value < Bonferroni cut-off
-
-  threshold <- (as.numeric(abs(toto$logFC) > thresholdFC & toto$pval< thresholdpv ) +1)*2
-  listgen<-data.frame(toto,"threshold"=threshold)
-  if(!graph){return(listgen)}
-  ##Construct the plot object
-  g = ggplot(data=listgen, aes(x=logFC, y=-log10(pval))) +
-    geom_point(alpha=0.4, size=1.75, colour=threshold) +
-    theme(legend.position = "none") +
-    #xlim(c(-(max(listgen$logFC)+0.2), max(listgen$logFC)+0.2)) + ylim(c(0, max(-log10(listgen$pval))+0.2)) +
-    xlab("log2 fold change") + ylab("-log10 p-value")+
-    ggtitle(maintitle)+theme(plot.title=element_text( size=15)) 
-  g
-} 
-
-barplottest<-function(restest,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="Mean by group for differentially expressed metabolit"){
-  meta<-rep(restest[,1],each=2)
-  lev1<-colnames(restest)[5]
-  lev2<-colnames(restest)[6]
-  categ<-rep(c(lev1,lev2),times=(nrow(restest)))
-  pval<-rep((restest$pval< thresholdpv),each=2)
-  logFC<-rep((abs(restest$logFC)> thresholdFC),each=2) 
-  moy<-vector() 
-  moy[seq(from=1,to=length(meta),by = 2)]<-restest[,5]
-  moy[seq(from=2,to=length(meta),by = 2)]<-restest[,6]
-  data<-data.frame(meta,categ,pval,logFC,moy)
-  data<-data[order(data$pval),]
-  if(!graph){return(data[which((data$pval==TRUE)& (data$logFC==TRUE)),])}
-  else{
-      ggplot(data[which( ( data$pval) & (data$logFC) ),], aes(meta, moy,fill=categ))+geom_bar(stat="identity", position="dodge")+ 
-      ggtitle(maintitle)+theme(plot.title=element_text( size=15))}
 }
 
-barplot2<-function(toto){
-  meta<-rep(colnames(toto[,-1]),each=2)
-  categ<-rep(levels(toto[,1]),times=(ncol(toto)-1))
-  moy<-vector()
-  moy[seq(from=1,to=length(meta),by = 2)]<-colMeans(toto[which(toto[,1]==categ[1]),-1],na.rm = T)
-  moy[seq(from=2,to=length(meta),by = 2)]<-colMeans(toto[which(toto[,1]==categ[2]),-1],na.rm = T)
-  data<-data.frame(meta,categ,moy)
-  
-  ggplot(data, aes(meta, moy,fill=categ))+geom_bar(stat="identity", position="dodge")+ 
-    ggtitle("Intensity Mean for differentially expressed metabolit") + theme(plot.title = element_text(lineheight=.8, face="bold"))
-}
-gg_color_hue <- function(n) {
-  hues = seq(15, 375, length=n+1)
-  hcl(h=hues, l=65, c=100)[1:n]
-}
+####
 
-plot_pred_type_distribution <- function(class,pred,names, threshold,maintitle="Score representation",graph=T) {
-  df<-data.frame(names,class,pred)
-  colnames(df)<-c("names","class","pred")
-  v <-rep(NA, nrow(df))
-  v <- ifelse(df$pred >= threshold & df$class == levels(class)[1], "TruePositiv", v)
-  v <- ifelse(df$pred >= threshold & df$class == levels(class)[2], "FalsePositiv", v)
-  v <- ifelse(df$pred < threshold & df$class ==  levels(class)[1], "FalseNegativ", v)
-  v <- ifelse(df$pred < threshold & df$class == levels(class)[2], "TrueNegativ", v)
-  
-  df$predtype <-factor(v,levels = c("FalseNegativ","FalsePositiv","TrueNegativ","TruePositiv"),ordered = T)
-  if(!graph){return(df)}
-  set.seed(20011203)
-  ggplot(data=df, aes(x=class, y=pred)) + 
-    #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
-    geom_jitter(aes(color=predtype), alpha=0.6) +
-    geom_hline(yintercept=threshold, color="red", alpha=0.6) +
-    scale_color_manual(values=palet(df$predtype),name="") +
-    ggtitle(maintitle)+theme(plot.title=element_text( size=15))
-}
-
-
-boxplotggplot<-function(class,score,names,threshold,maintitle="svm score's Boxplot ",graph=T){
-  data<-data.frame("names"=names,"class"= class,"score"=as.vector(score))
-  if(!graph){return(data)}
-  p<-ggplot(data, aes(x=class, y=score, fill=class)) +
-    geom_boxplot()+
-    geom_hline(yintercept=threshold, color="red", alpha=0.6)+
-    ggtitle(maintitle)+theme(plot.title=element_text( size=15))
-
-  p
-}
-
-scoremodelplot<-function(class,score,names,threshold,type,graph){
-    if(type=="boxplot"){
-          boxplotggplot(class =class,score =score,names=names,threshold=threshold,
-                        graph = graph)
+modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformdataparameters,datastructuresfeatures=NULL){
+  if(modelparameters$modeltype!="nomodel"){
+    colnames(learningmodel)[1]<-"group"
+    
+    if(modelparameters$invers){
+      learningmodel[,1]<-factor(learningmodel[,1],levels = rev(levels(learningmodel[,1])),ordered = TRUE)
     }
-    else if(type=="points"){
-          plot_pred_type_distribution(class = class, pred = score,names=names,threshold=threshold,graph=graph )
-    } 
+    lev<-levels(x = learningmodel[,1])
+    names(lev)<-c("positif","negatif")
+    
+    #Build model
+    if (modelparameters$modeltype=="randomforest"){
+      set.seed(20011203)
+#       model <- randomForest(learningmodel[,-1],learningmodel[,1],ntree=500,
+#                              importance=T,keep.forest=T)
+      
+      model<-tuneRF(learningmodel[,-1],learningmodel[,1],doBest=T,importance=T,plot=F,trace=F)
+      if(modelparameters$fs){
+        featureselect<-selectedfeature(model=model,modeltype = "randomforest",tab=learningmodel,criterionimportance = "fscore",criterionmodel = "auc")
+        model<-featureselect$model
+        learningmodel<-featureselect$dataset
+      }
+      
+      scorelearning =data.frame(model$votes[,lev["positif"]])
+      colnames(scorelearning)<-paste(lev[1],"/",lev[2],sep="")
+      predictclasslearning<-factor(levels = lev) 
+      predictclasslearning[which(scorelearning>=modelparameters$thresholdmodel)]<-lev["positif"]
+      predictclasslearning[which(scorelearning<modelparameters$thresholdmodel)]<-lev["negatif"]
+      predictclasslearning<-as.factor(predictclasslearning)
+      #predictclasslearning==model$predicted
+    }   
+    
+    if(modelparameters$modeltype=="svm"){
+      model <- best.tune(svm,group ~ ., data = learningmodel,cross=10 )   
+      
+      if(modelparameters$fs){
+        #               x<-as.matrix(learning[,-1])
+        #               y<-((as.numeric(learning[,1])-1)*2)-1
+        #               scad<- svm.fs(x, y=y, fs.method="scad", bounds=NULL,
+        #                             cross.outer= 0, grid.search = "interval",  maxIter = 100,
+        #                             inner.val.method = "cv", cross.inner= 5, maxevals=500,
+        #                             seed=123, parms.coding = "log2", show="none", verbose=FALSE )
+        #               length(scad$model$xind)
+        #               learning<-learning[,c(1,scad$model$xind+1)]
+        featureselect<-selectedfeature(model=model,modeltype = "svm",tab=learningmodel,criterionimportance = "fscore",criterionmodel = "auc")
+        model<-featureselect$model
+        learningmodel<-featureselect$dataset
+      }
+      scorelearning <-model$decision.values
+      if(sum(lev==(strsplit(colnames(scorelearning),split = "/")[[1]]))==0){
+        scorelearning<-scorelearning*(-1)
+        colnames(scorelearning)<-paste(lev[1],"/",lev[2],sep="")
+      }
+      predictclasslearning<-factor(levels = lev) 
+      predictclasslearning[which(scorelearning>=modelparameters$thresholdmodel)]<-lev["positif"]
+      predictclasslearning[which(scorelearning<modelparameters$thresholdmodel)]<-lev["negatif"]
+      predictclasslearning<-as.factor(predictclasslearning)
+    }
+    
+    #levels(predictclassval)<-paste("test",levels(predictclasslearning),sep="")
+    levels(predictclasslearning)<-paste("test",lev,sep="")
+    classlearning<-learningmodel[,1]
+    
+    reslearningmodel<-data.frame(classlearning,scorelearning,predictclasslearning)
+    colnames(reslearningmodel) <-c("classlearning","scorelearning","predictclasslearning") 
+    datalearningmodel<-list("learningmodel"=learningmodel,"reslearningmodel"=reslearningmodel)
+    
+    if (modelparameters$adjustval){
+      #Validation
+      colnames(validation)[1]<-"group"
+      validationdiff<-validation[,which(colnames(validation)%in%colnames(learningmodel))]
+      if(transformdataparameters$log) { 
+        validationdiff[,-1]<-log(x = validationdiff[,-1]+1)}
+      if(transformdataparameters$standardization){
+        validationdiff[,-1]<-scale(validationdiff[,-1], center = F, scale = TRUE)
+      }
+      #NAstructure if NA ->0
+      if(!is.null(datastructuresfeatures)){
+        validationdiff[which(is.na(validationdiff),arr.ind = T)[which(which(is.na(validationdiff),arr.ind = T)[,2]%in%which(colnames(validationdiff)%in%teststructure$names)),]]<-0
+      }
+      #
+      validationmodel<- replaceNAvalidation(validationdiff[,-1],toto=learningmodel[,-1],rempNA=transformdataparameters$rempNA)
+      
+      
+      #prediction a partir du model
+      if(modelparameters$model=="randomforest"){
+        scoreval <-predict(object=model,type="prob",newdata = validationmodel)[,lev["positif"]]
+        predictclassval<-vector(length = length(scoreval) ) 
+        predictclassval[which(scoreval>=modelparameters$thresholdmodel)]<-lev["positif"]
+        predictclassval[which(scoreval<modelparameters$thresholdmodel)]<-lev["negatif"]
+        predictclassval<-as.factor(predictclassval)
+        
+      }
+      
+      if(modelparameters$model=="svm"){
+        scoreval =attr(predict(model,newdata =  validationmodel,decision.values=T),"decision.values")
+        if(sum(lev==(strsplit(colnames(scoreval),split = "/")[[1]]))==0){scoreval<-scoreval*(-1)}
+        predictclassval<-vector(length = length(scoreval) ) 
+        predictclassval[which(scoreval>=modelparameters$thresholdmodel)]<-lev["positif"]
+        predictclassval[which(scoreval<modelparameters$thresholdmodel)]<-lev["negatif"]
+        predictclassval<-as.factor(predictclassval)
+      }
+      
+      if(sum(lev==(levels(predictclassval)))==0){
+        predictclassval<-factor(predictclassval,levels = rev(levels(predictclassval)),ordered = TRUE)
+      }
+      classval<- validation[,1]
+      if(sum(lev==(levels(classval)))==0){
+        classval<-factor(classval,levels = rev(levels(classval)),ordered = TRUE)
+      }
+      
+      #levels(predictclassval)<-paste("test",levels(predictclassval),sep="")
+      levels(predictclassval)<-paste("test",lev,sep="")
+      resvalidationmodel<-data.frame(classval,scoreval,predictclassval)
+      colnames(resvalidationmodel) <-c("classval","scoreval","predictclassval") 
+      auc<-auc(roc(as.vector(classval), as.vector(scoreval)))
+      datavalidationmodel<-list("validationdiff"=validationdiff,"validationmodel"=validationmodel,"resvalidationmodel"=resvalidationmodel,"auc"=auc)
+      
+    }
+    else{datavalidationmodel<-list()}
+    res<-list("datalearningmodel"=datalearningmodel,"model"=model,"datavalidationmodel"=datavalidationmodel,"groups"=lev,"parameters"=modelparameters)
+  }
+}
+
+
+replaceNAvalidation<-function(validationdiff,toto,rempNA){
+  validationdiffssNA<-validationdiff
+  for(i in 1:nrow(validationdiff)){
+    validationdiffssNA[i,]<-replaceNAoneline(lineNA = validationdiff[i,],toto = toto,rempNA =rempNA)
+  }
+  return(validationdiffssNA)
+}
+
+replaceNAoneline<-function(lineNA,toto,rempNA){
+  alldata<-rbind(lineNA,toto)
+  if(rempNA=="moygr"){ 
+    #print("impossible de remplacer les NA par la moyenne par group pour la validation")
+    linessNA<-replaceNA(toto = cbind(rep(0,nrow(alldata)),alldata),rempNA ="moy")[1,-1]        }
+  
+  else{linessNA<-replaceNA(toto = cbind(rep(0,nrow(alldata)),alldata),rempNA =rempNA)[1,-1]}
+  
+  return(linessNA)
 }
 
 ROCcurve<-function(validation,decisionvalues,maintitle="Roc curve",graph=T,ggplot=T){
@@ -616,296 +843,101 @@ ROCcurve<-function(validation,decisionvalues,maintitle="Roc curve",graph=T,ggplo
     f
   }
 }
-barplottestcond<-function(toto){
-  #toto: dataframe res from conditiontest function
-  rescond<-vector()
-  for (i in (1:nrow(toto))){
-    if(toto$samplenorm[i]=="norm" & toto$varequal[i]!="varequal"){rescond[i]<-"norm"}
-    else if(toto$samplenorm[i]=="norm" & toto$varequal[i]=="varequal"){rescond[i]<-"both"}
-    else if( toto$samplenorm[i]!="norm" &toto$varequal[i]=="varequal"){rescond[i]<-"varequal"}
-    else{rescond[i]<-"none"}
-    
+
+scoremodelplot<-function(class,score,names,threshold,type,graph){
+  if(type=="boxplot"){
+    boxplotggplot(class =class,score =score,names=names,threshold=threshold,
+                  graph = graph)
   }
-  data<-as.factor(rescond)
-  p<-qplot(factor(data), geom="bar", fill=factor(data))
-  p+ggtitle("Repartition of the variables according to the test results")+
-    theme(plot.title=element_text(size=15))
+  else if(type=="points"){
+    plot_pred_type_distribution(class = class, pred = score,names=names,threshold=threshold,graph=graph )
+  } 
 }
 
-showsingledata<-function(toto,namevar,title=" "){
-  data<-toto[,c(1,1,  which(colnames(toto)==namevar))]
-  set.seed(1)
-  data[,2]<-as.numeric(data[,2])+rnorm(n = nrow(data),mean = 0,sd = 0.1)
-  colnames(data)<-c("class","num","intensity")
-  col<-gg_color_hue(2)
-  data<-data[complete.cases(data),]
-  ggplot(data, aes(x=num, y=intensity, group=class)) +
-    geom_point(aes( color=class) ,size=5)+
-    annotate("text",x=1.5,y=max(data[,3]),label=namevar,size=6)+
-    ggtitle(title)
-    
+boxplotggplot<-function(class,score,names,threshold,maintitle="svm score's Boxplot ",graph=T){
+  data<-data.frame("names"=names,"class"= class,"score"=as.vector(score))
+  if(!graph){return(data)}
+  p<-ggplot(data, aes(x=class, y=score, fill=class)) +
+    geom_boxplot()+
+    geom_hline(yintercept=threshold, color="red", alpha=0.6)+
+    ggtitle(maintitle)+theme(plot.title=element_text( size=15))
   
-}
-proptestNA<-function(toto){
-  group<-toto[,1]
-  toto[,1]<-as.character(toto[,1])
-  toto[which(!is.na(toto),arr.ind=T)]<-"value"
-  toto[which(is.na(toto),arr.ind=T)]<-"NA"
-  pval<-vector("numeric",length = ncol(toto))
-  lessgroup<-vector("character",length = ncol(toto))
-  prctmore<-vector("numeric",length = ncol(toto))
-  prctless<-vector("numeric",length = ncol(toto))
-  for (i in 1:ncol(toto)){
-    conting<-table(group,factor(toto[,i],levels=c("value","NA")))
-    options(warn=-1)
-    res<-prop.test(conting)
-    options(warn=0)
-    pval[i]<-res$p.value
-    prctmore[i]<-max(res$estimate)
-    prctless[i]<-min(res$estimate)
-    if(res$estimate[1]==res$estimate[2]){ lessgroup[i]<-"NA"}
-    else{lessgroup[i]<-rownames(conting)[which(res$estimate==min(res$estimate))]}
-  }
-  pval[is.na(pval)]<-1
-  return(data.frame("pval"=pval,"lessgroup"=lessgroup,"prctless"=prctless,"prctmore"=prctmore,"names"=colnames(toto)))
+  p
 }
 
 
-
-errorplot<-function(text=paste("error /n","text error")){
-  plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
-  text(x = 0.5, y = 0.5, text,cex = 1.6, col = "black")}
-
-bestmodel<-function(tabdecouv,tabval,parameters){
-  tabselect<-selectprctNA(toto = tabdecouv,prctNA = parameters$prctNA,group=as.logical(parameters$NAgroup),restrictif =as.logical(parameters$restrict))
-  nbselect<-dim(tabselect)[2]-1
-  if(parameters$NAstructure==TRUE){
-    tabNAstructure<<-as.data.frame(replaceproptestNA(toto = tabdecouv,threshold = parameters$thresholdNAstructure ,rempNA ="moygr",
-                                     maxvaluesgroupmin=parameters$maxvaluesgroupmin,minvaluesgroupmax=parameters$minvaluesgroupmax,replacezero=T))
-    if(!is.null(tabNAstructure)){
-    tabselect1<-cbind(tabselect,tabNAstructure[,!colnames(tabNAstructure)%in%colnames(tabselect)])
-    if(sum(!colnames(tabNAstructure)%in%colnames(tabselect))!=0){
-      colnames(tabselect1)[(ncol(tabselect)+1):ncol(tabselect1)]<-colnames(tabNAstructure)[!colnames(tabNAstructure)%in%colnames(tabselect)]}
-    tabselect<-tabselect1
-    }
+selectedfeature<-function(model,modeltype,tab,criterionimportance,criterionmodel){
+  rmvar<-testmodel(model=model,modeltype = modeltype,tab=tab,criterionimportance = criterionimportance,criterionmodel = criterionmodel)
+  i=0
+  tabdiff2<-tab
+  while(rmvar!=0){
+    print(i<-i+1)
+    tabdiff2<-tabdiff2[,-rmvar]
+    if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)}
+    if (modeltype=="randomforest"){model <- randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T)}
+    rmvar<-testmodel(model=model,modeltype = modeltype,tab=tabdiff2,
+                     criterionimportance = criterionimportance,criterionmodel = criterionmodel)
   }
-  if(parameters$log==TRUE) {
-    tabselect[,-1]<-log(x = tabselect[,-1]+1,base = 2)}
-  if(parameters$scaled==TRUE){
-    tabselect[,-1]<-scale(tabselect[,-1], center = F, scale = TRUE)
-  }
-  tabselectssNA<-replaceNA(toto=tabselect,rempNA=parameters$rempNA,pos=F,NAstructure = as.logical(parameters$NAstructure),
-                           threshold=parameters$thresholdNAstructure,maxvaluesgroupmin=parameters$maxvaluesgroupmin,
-                           minvaluesgroupmax=parameters$minvaluesgroupmax)
-  tabdiff<-testdiff(tabselectssNA = tabselectssNA,test = parameters$test,adjustpval = as.logical(parameters$adjustpval),
-                    thresholdpv = parameters$thresholdpv,thresholdFC = parameters$thresholdFC)
-  nbdiff<-as.integer(ncol(tabdiff)-1)
-  if(nbdiff<=0){auc<-c(0,0,0)
-  nbdiff<-0}
-  else{ 
-    if(parameters$NAstructure==TRUE){varstructure<-colnames(tabNAstructure)}
-    else{varstructure<-NULL}
-    auc<-modelisation(tabdiff = tabdiff,tabval = tabval,model = as.character(parameters$model)  ,
-            rempNA = as.character(parameters$rempNA) ,log=parameters$log,scaled=parameters$scaled,varstructure=varstructure,fs = parameters$fs)
-  }
-  res<-c(nbselect,nbdiff,auc)
+  res<-list("dataset"=tabdiff2,"model"=model)
   return(res)
 }
 
 
-testdiff<-function(tabselectssNA,test,adjustpval,thresholdpv,thresholdFC){
-  if(test=="notest"){tabdiff<-tabselectssNA}
-  else{
-    datatest<-diffexptest(toto = tabselectssNA,test = test ,adjustpval=adjustpval)
-    #differential expressed          
-    datatestdiff<-datatest[which( (datatest$pval<thresholdpv)&(abs(datatest$logFC)>thresholdFC )),]
-    if(dim(datatestdiff)[1]==0){
-      print("no differentially expressed variables")
-      tabdiff<-data.frame()
+testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
+  #retourn la variable a enlever
+  importancevar<-importancemodelsvm(model = model,modeltype=modeltype,tabdiff=tab,criterion = criterionimportance)
+  lessimportantevar<-which(importancevar==min(importancevar,na.rm =T) )
+  test<-vector()
+  if(modeltype=="svm"){
+    if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$fitted)}
+    if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$decision.values)))}
+    for(i in 1:length(lessimportantevar)){
+      tabdiff2<-tab[,-lessimportantevar[i]]
+      resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)
+      if(criterionmodel=="accuracy"){test[i]<-resmodeldiff$tot.accuracy-model$tot.accuracy}
+      if(criterionmodel=="BER"){
+        #print(paste("Ber test :",BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted) ))
+        test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted)}
+      if(criterionmodel=="auc"){
+        test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values)))-aucmod}
+    }}
+  if(modeltype=="randomforest"){
+    if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$predicted)}
+    if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$votes[,1])))}
+    for(i in 1:length(lessimportantevar)){
+      tabdiff2<-tab[,-lessimportantevar[i]]
+      resmodeldiff <-randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T,trace=T)
+      if(criterionmodel=="accuracy"){test[i]<-mean(resmodeldiff$confusion[,3])-mean(model$confusion[,3])}
+      if(criterionmodel=="BER"){
+        test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)}
+      if(criterionmodel=="auc"){
+        test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1])))-aucmod}
     }
-    else{
-      indvar<-(colnames(tabselectssNA)%in%datatestdiff$nom)
-      indvar[1]<-T #keep the categorial variable
-      tabdiff<-tabselectssNA[,indvar]
-    }
   }
-  return(tabdiff)
-}
-
-modelisation<-function(tabdiff,tabval,model,rempNA,log,scaled,varstructure=NULL,fs=F){
-  if (model=="randomforest"){
-    set.seed(20011203)
-    tab<-as.data.frame(tabdiff[,-1])
-    colnames(tab)<-colnames(tabdiff)[-1]
-    resmodel <- randomForest(tab,tabdiff[,1],ntree=500,
-                             importance=T,keep.forest=T)
-    if(fs==TRUE){
-      featureselect<-selectedfeature(model=resmodel,modeltype ="randomforest" ,tab=tabdiff,
-                                     criterionimportance = "fscore",criterionmodel = "BER")
-      resmodel<-featureselect$model
-      tabdiff<-featureselect$dataset
-      }
-  }   
-  if(model=="svm"){
-    
-    resmodel<- best.tune(svm,train.y=tabdiff[,1] ,train.x=tabdiff[,-1],cross=10)
-    
-    if(fs==TRUE){
-      
-#       x<-as.matrix(tabdiff[,-1])
-#       y<-((as.numeric(tabdiff[,1])-1)*2)-1
-#       scad<- svm.fs(x, y=y, fs.method="scad", bounds=NULL,
-#                     cross.outer= 0, grid.search = "interval",  maxIter = 100,
-#                     inner.val.method = "cv", cross.inner= 5, maxevals=500,
-#                     seed=123, parms.coding = "log2", show="none", verbose=FALSE )
-#       nbselectmodel<-length(scad$model$xind)
-#       tabdiff<-tabdiff[,c(1,scad$model$xind+1)]
-      featureselect<-selectedfeature(model=resmodel,modeltype ="svm" ,tab=tabdiff,criterionimportance = "fscore",criterionmodel = "BER")
-      resmodel<-featureselect$model
-      tabdiff<-featureselect$dataset
-    }
-    #resmodel <- svm(class ~ ., data = tabdiff )
-  }
-  nbselectmodel<-ncol(tabdiff)-1
-  
-  #Validation
-  
-  tabvaldiff<-tabval[,which(colnames(tabval)%in%colnames(tabdiff))]
-  if(rempNA=="moygr"){rempNA<-"moy" }
-  if(log==TRUE) {tabvaldiff[,-1]<-log(x = tabvaldiff[,-1]+1,base = 2)}
-  if(scaled==TRUE){
-    tabvaldiff[,-1]<-scale(tabvaldiff[,-1], center = F, scale = TRUE)
-  }
-  if(!is.null(varstructure)){
-    tabvaldiff[which(is.na(tabvaldiff),arr.ind = T)[which(which(is.na(tabvaldiff),arr.ind = T)[,2]%in%which(colnames(tabvaldiff)%in%varstructure)),]]<-0
-    }
-  alldata<-rbind(tabvaldiff,tabdiff)
-  
-  tabvaldiffssNA<<-replaceNA(toto = alldata,rempNA =rempNA,pos =T ,NAstructure = F)
-  #prediction a partir du model
-  validation<-tabvaldiffssNA[1:nrow(tabvaldiff),-1]
-  colnames(validation)<-colnames(tabvaldiff )[-1]
-  if(model=="randomforest"){
-    scoreval<-predict(object=resmodel,type="prob",newdata = validation)[,2]
-    predval<-predict(object=resmodel,type="response",newdata = validation)
-  }
-
-  if(model=="svm"){
-    predval<-predict(resmodel,newdata =validation,decision.values=F)
-    scoreval <-attr(predict(resmodel,newdata =validation,decision.values=T),"decision.values")
-  }
-  auc<-auc(roc(tabvaldiff[,1], as.numeric(scoreval)))
-  if(is.na(auc))auc<-0
-  data<-table(predval, tabvaldiff[,1])
-  sensibilite<-round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
-  specificite<-round(data[2,2]/(data[1,2]+data[2,2]),digits=3)
-  res<-c(nbselectmodel,auc,sensibilite,specificite)
-  return(res)
-}
-constructparameters<-function(listparameters){
-  resparameters<-data.frame(listparameters[[1]])
-  namescol<-names(listparameters)
-  
-  for(i in 2:length(listparameters)){
-    tt<-rep(listparameters[[i]],each=nrow(resparameters))
-    res<-resparameters
-    if(length(listparameters[[i]])>1){
-      for (j in 1:(length(listparameters[[i]])-1)){
-        res<-rbind(res,resparameters)
-      }
-    }
-    resparameters<-cbind(res,tt)
-  }
-  colnames(resparameters)<-namescol
-  return(resparameters)
-}
-
-classparameters<-function(resparameters){
-  resparameters<-as.data.frame(resparameters)
-  resparameters$prctNA<-as.numeric( resparameters$prctNA)
-  resparameters$NAgroup<-as.logical(resparameters$NAgroup)
-  resparameters$restrict<-as.logical(resparameters$restrict)
-  resparameters$log<-as.logical(resparameters$log)
-  resparameters$scaled<-as.logical(resparameters$scaled)
-  resparameters$rempNA<-as.factor(resparameters$rempNA)
-  resparameters$NAstructure<-as.logical(resparameters$NAstructure)
-  resparameters$test<-as.factor(resparameters$test)
-  resparameters$adjustpval<-as.logical(resparameters$adjustpval)
-  resparameters$thresholdpv<-as.numeric(resparameters$thresholdpv)
-  resparameters$thresholdFC<-as.numeric(resparameters$thresholdFC)
-  resparameters$fs<-as.logical(x = resparameters$fs)
-  resparameters$model<-as.factor(resparameters$model)
-  return(resparameters)
-  
-}
-
-correlogrammapp<-function(toto,maintitle="Correlogramm",graph=T){
-  
-  data<-calculcorr(toto)
-  if (!graph){return(data)}
-  rownames(data$correlation)<-substring(rownames(data$correlation),1,4)
-  colnames(data$correlation)<-substring( colnames(data$correlation),1,4)
-  rownames(data$pvalue)<-substring(rownames(data$pvalue),1,4)
-  colnames(data$pvalue)<-substring( colnames(data$pvalue),1,4)
-  correlation<-corrplot(data$correlation,order = "hclust" ,hclust.method="ward",
-                        p.mat = data$pvalue, sig.level = 0.01, insig = "blank",title =maintitle ,mar=c(1,0,2,0))
-}
-calculcorr<-function(toto){
-  data<-rcorr(as.matrix(toto),type = "spearman") 
-  correlation<-data$r
-  correlation[which(is.na((correlation)),arr.ind = T)]<-0
-  #Test de significaticité de la corrélation
-  testcorrelation<-data$P 
-  testcorrelation[which(is.na((testcorrelation)),arr.ind = T)]<-1
-  diag(testcorrelation)<-NA
-  return(list("correlation"=correlation,"pvalue"=testcorrelation))
-}
-palet<-function(pred){
-  col<-sort(unique(as.character(pred)))
-  col[which(col=="FalseNegativ")]<-"#C77CFF"
-  col[which(col=="FalsePositiv")]<-"#00BA38"
-  col[which(col=="TrueNegativ")]<-"#00BFC4"
-  col[which(col=="TruePositiv")]<-"#F8766D"
-  return(col)
-}
-
-densityscore<-function(score,scorepredict,maintitle="Density learning's score and prediction score",threshold,graph=T){
-  x<-density(score)$x
-  y<-density(score)$y
-  xddf <- data.frame(x=x,y=y)
-  x<-scorepredict
-  y<-rep(x = 0.1,length=length(scorepredict) )
-  coordpredict<- data.frame(x=x,y=y)
-  if(!graph){rawdata<-data.frame(xcurve=xddf$x,ycurve=xdff$y,xpoints=coordpredict$x,ypoints=coordpredict$y)}
-  qplot(x,y,data=xddf,geom="line",xlab = "score",ylab="density of learning's score")+
-    geom_ribbon(data=subset(xddf ,x>min(density(score)$x) & x<threshold),aes(x=x,ymin=0,ymax=y,fill="blue"),
-                colour=NA,alpha=0.5)+
-    geom_ribbon(data=subset(xddf ,x>threshold & x<max(density(score)$x)),aes(x=x,ymin=0,ymax=y,fill="red"),
-                colour=NA,alpha=0.5)+
-    geom_point(data = coordpredict, colour = "black",size=rep(4,length(x)))+
-    ggtitle(maintitle)+theme(plot.title=element_text( size=15))+theme(legend.position = "bottom") +
-    scale_fill_manual(name='density',
-                      values=c(alpha("blue",alpha = 0.1),alpha("red",alpha = 0.5)),
-                      labels=c("negativ","positiv"))+guides(colour = guide_legend(override.aes = list(alpha = 0.5)))
-}
-
-
+  #print(paste("test :",max(test)))
+  if(max(test)>=0){num<-lessimportantevar[which(test==max(test))[1]]}
+  else(num<-0)
+  #print(paste( "num", num))
+  return(num)
+} 
 
 importancemodelsvm<-function(model,modeltype,tabdiff,criterion){
+  #function calculate the importance of each variable of the model
+  #first column of tabdiff is the group
   importancevar<-vector()
   if(criterion=="accuracy"){
     if(modeltype=="svm"){
-    for (i in 2:ncol(tabdiff)){
-      vec<-vector()
-      tabdiffmodif<-tabdiff
-      for( j in 1:20){
-        tabdiffmodif[,i]<-tabdiffmodif[sample(1:nrow(tabdiff)),i]
-        #tabdiffmodif<-tabdiffmodif[,-i]
-        
-        resmodeldiff<-svm(y =tabdiffmodif[,1],x=tabdiffmodif[,-1],cross=10,type ="C-classification", kernel="radial",cost=model$cost,gamma=model$gamma)
-        vec[j]<-abs(resmodeldiff$tot.accuracy-model$tot.accuracy)
-      }
-      importancevar[i]<-mean(vec)}
+      for (i in 2:ncol(tabdiff)){
+        vec<-vector()
+        tabdiffmodif<-tabdiff
+        for( j in 1:20){
+          tabdiffmodif[,i]<-tabdiffmodif[sample(1:nrow(tabdiff)),i]
+          #tabdiffmodif<-tabdiffmodif[,-i]
+          
+          resmodeldiff<-svm(y =tabdiffmodif[,1],x=tabdiffmodif[,-1],cross=10,type ="C-classification", kernel="radial",cost=model$cost,gamma=model$gamma)
+          vec[j]<-abs(resmodeldiff$tot.accuracy-model$tot.accuracy)
+        }
+        importancevar[i]<-mean(vec)}
       
     }
     if(modeltype=="randomforest"){
@@ -919,46 +951,6 @@ importancemodelsvm<-function(model,modeltype,tabdiff,criterion){
   }
   return(importancevar)
 }
-
-testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
-  #retourn la variable a enlever
-  importancevar<-importancemodelsvm(model = model,modeltype=modeltype,tabdiff=tab,criterion = criterionimportance)
-  lessimportantevar<-which(importancevar==min(importancevar,na.rm =T) )
-  test<-vector()
-  if(modeltype=="svm"){
-  if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$fitted)}
-    #print(paste("ber mod :",bermod))
-  if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$decision.values)))}
-  for(i in 1:length(lessimportantevar)){
-    tabdiff2<-tab[,-lessimportantevar[i]]
-    resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)
-    if(criterionmodel=="accuracy"){test[i]<-resmodeldiff$tot.accuracy-model$tot.accuracy}
-    if(criterionmodel=="BER"){
-      #print(paste("Ber test :",BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted) ))
-      test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted)}
-    if(criterionmodel=="auc"){
-      test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$decision.values)))-aucmod}
-    }}
-    if(modeltype=="randomforest"){
-      if(criterionmodel=="BER"){bermod<-BER(class = tab[,1],classpredict = model$predicted)}
-      if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$votes[,1])))}
-      for(i in 1:length(lessimportantevar)){
-        tabdiff2<-tab[,-lessimportantevar[i]]
-        resmodeldiff <-randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T,trace=T)
-    if(criterionmodel=="accuracy"){test[i]<-mean(resmodeldiff$confusion[,3])-mean(model$confusion[,3])}
-    if(criterionmodel=="BER"){
-      test[i]<-bermod-BER(class = tabdiff2[,1],classpredict = resmodeldiff$predicted)}
-    if(criterionmodel=="auc"){
-      test[i]<-auc(roc(tabdiff2[,1], as.vector(resmodeldiff$votes[,1])))-aucmod}
-    }
-    }
-  #print(paste("test :",max(test)))
-  if(max(test)>=0){num<-lessimportantevar[which(test==max(test))[1]]}
-  else(num<-0)
-  #print(paste( "num", num))
-  return(num)
-} 
-
 Fscore<-function(tab,class){
   tabpos<-tab[which(class==levels(class)[1]),]
   npos<-nrow(tabpos)
@@ -982,18 +974,16 @@ BER<-function(class,classpredict){
   (1/2)*( sum(class[pos]!=classpredict[pos])/length(pos)+ sum(class[neg]!=classpredict[neg])/length(neg)  )
 }
 
-selectedfeature<-function(model,modeltype,tab,criterionimportance,criterionmodel){
-  rmvar<-testmodel(model=model,modeltype = modeltype,tab=tab,criterionimportance = criterionimportance,criterionmodel = criterionmodel)
-  i=0
-  tabdiff2<-tab
-  while(rmvar!=0){
-    print(i<-i+1)
-    tabdiff2<-tabdiff2[,-rmvar]
-    if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)}
-    if (modeltype=="randomforest"){model <- randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T)}
-    rmvar<-testmodel(model=model,modeltype = modeltype,tab=tabdiff2,
-                     criterionimportance = criterionimportance,criterionmodel = criterionmodel)
-  }
-  res<-list("dataset"=tabdiff2,"model"=model)
-  return(res)
+nll<-function(element){
+  if(is.null(element)){return("")}
+  else{return(element)}
+}
+
+sensibility<-function(predict,class){
+data<-table(predict,class)
+round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
+}
+specificity<-function(predict,class){
+  data<-table(predict,class )
+  round(data[2,2]/(data[1,2]+data[2,2]),digit=3)
 }
