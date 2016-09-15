@@ -2,7 +2,7 @@ library(shiny)
 shinyUI(fluidPage(
   
   # Application title
-  titlePanel("Application"),
+  titlePanel("Modelisation Application"),
   sidebarLayout(
     sidebarPanel(
       wellPanel( 

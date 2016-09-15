@@ -498,7 +498,11 @@ testfunction<-function(tabtransform,testparameters){
   }
   else{datatesthypothesis<-data.frame()}
   #diff test
-  if(testparameters$test=="notest"){tabdiff<-tabtransform}
+  if(testparameters$test=="notest"){
+    tabdiff<-tabtransform
+    datatest<-NULL
+    testparameters<-NULL
+    useddata<-NULL}
   else{
     datatest<-diffexptest(toto = tabtransform,test = testparameters$test )
     #differential expressed
@@ -741,16 +745,20 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
       if(transformdataparameters$standardization){
         validationdiff[,-1]<-scale(validationdiff[,-1], center = F, scale = TRUE)
       }
+      if(transformdataparameters$arcsin){
+        validationdiff[,-1]<-apply(X = validationdiff[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
+        validationdiff[,-1]<-asin(sqrt(validationdiff[,-1]))
+      }
       #NAstructure if NA ->0
       if(!is.null(datastructuresfeatures)){
-        validationdiff[which(is.na(validationdiff),arr.ind = T)[which(which(is.na(validationdiff),arr.ind = T)[,2]%in%which(colnames(validationdiff)%in%teststructure$names)),]]<-0
+        validationdiff[which(is.na(validationdiff),arr.ind = T)[which(which(is.na(validationdiff),arr.ind = T)[,2]%in%which(colnames(validationdiff)%in%datastructuresfeatures$names)),]]<-0
       }
       #
       validationmodel<- replaceNAvalidation(validationdiff[,-1],toto=learningmodel[,-1],rempNA=transformdataparameters$rempNA)
       
       
       #prediction a partir du model
-      if(modelparameters$model=="randomforest"){
+      if(modelparameters$modeltype=="randomforest"){
         scoreval <-predict(object=model,type="prob",newdata = validationmodel)[,lev["positif"]]
         predictclassval<-vector(length = length(scoreval) ) 
         predictclassval[which(scoreval>=modelparameters$thresholdmodel)]<-lev["positif"]
@@ -759,7 +767,7 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
         
       }
       
-      if(modelparameters$model=="svm"){
+      if(modelparameters$modeltype=="svm"){
         scoreval =attr(predict(model,newdata =  validationmodel,decision.values=T),"decision.values")
         if(sum(lev==(strsplit(colnames(scoreval),split = "/")[[1]]))==0){scoreval<-scoreval*(-1)}
         predictclassval<-vector(length = length(scoreval) ) 
