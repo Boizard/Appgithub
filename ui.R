@@ -13,7 +13,7 @@ shinyUI(fluidPage(
           ), 
            conditionalPanel(condition="input.analysis=='new analysis' ",
             fluidRow(
-              column(12,br(),radioButtons("filetype", "Extention of the file",c("csv" = "csv", "xlsx" = "xlsx")))
+              column(12,br(),radioButtons("filetype", "Extention of the file",c("csv" = "csv", "xlsx" = "xlsx"),inline = TRUE))
             ),
             fluidRow(
               column(12,conditionalPanel(condition ="input.help",
@@ -27,15 +27,15 @@ shinyUI(fluidPage(
               )
             ),
             fluidRow(
-              column(6,textInput('dec', 'character for decimal point',value = "." )),
+              conditionalPanel(condition ="input.filetype=='csv' ",column(6,textInput('dec', 'character for decimal point',value = "." ))),
               column(6,textInput("NAstring", label = "characters for missing values",value = "NA"))
             ),   
             fluidRow(
               conditionalPanel(condition ="input.filetype=='csv' ",
-                radioButtons('sep', 'Separator',c(Comma=',',Semicolon=';',Tab='\t') )),
+                radioButtons('sep', 'Separator',c(Comma=',',Semicolon=';',Tab='\t'),inline = TRUE )),
               conditionalPanel(condition ="input.filetype=='xlsx' ",
-                numericInput("skipn",label = "number of lines to skip",value = 0),
-                numericInput("sheetn",label = "sheet",value = 1))
+                column(6,numericInput("skipn",label = "number of lines to skip",value = 0)),
+                column(6,br(),numericInput("sheetn",label = "sheet",value = 1)))
             ),hr(),
               checkboxInput("transpose","Transpose the table",FALSE),
               checkboxInput("zeroegalNA","consider 0 as NA",FALSE)
@@ -114,14 +114,14 @@ shinyUI(fluidPage(
               helpText(" Select variables to extract variables from the learning dataset according to the number or the structure of Non-Attribute values (missing values)")
             ),  
             fluidRow(
-              column(7, numericInput("prctvalues","percentage minimum of values" , 0, min = 0, max = 100, step = 5),
+              column(7, numericInput("prctvalues","Percentage minimum of values" , 0, min = 0, max = 100, step = 5),
                 conditionalPanel(condition ="input.help",
-                  helpText("" )),br(),
+                  helpText("")),br(),
                 checkboxInput("NAstructure", "Select variables with a NA's structure " , value = FALSE),
                 conditionalPanel(condition ="input.help",
                     helpText("The structure test is a proportion test of the Non Attributes values between the 2 groups."))
               ),
-              column(5,radioButtons("selectmethod"," ",c("selection on all samples"="nogroup","each group has more than x% of values "="bothgroups","at least one group has more than x% of more"="onegroup")),
+              column(5,radioButtons("selectmethod","Methods of selection ",c("selection on all samples"="nogroup","each group has more than x% of values "="bothgroups","at least one group has more than x% of more"="onegroup")),
                   conditionalPanel(condition ="input.help",helpText("3 ways of selection : select variables which got at least x% of values in all samples, "),
                     helpText("                select variables which which have more than x% in the two groups"),
                     helpText("                select variables which have at leat one group whith more than x% of values"))
@@ -281,6 +281,7 @@ shinyUI(fluidPage(
                     downloadButton('downloaddatamodeldecouvbp', 'Download raw data'),align="center")
                 ),
                 column(2,radioButtons("plotscoremodel", "",c( "boxplot"="boxplot","points" = "points")),
+                  conditionalPanel(condition="input.plotscoremodel=='points'",checkboxInput("shownames1","show indivuals names",value=FALSE)),
                 textOutput("positif",inline=T), " = positif",
                 br(),
                 textOutput("negatif",inline=T), " = negatif"),
@@ -307,6 +308,7 @@ shinyUI(fluidPage(
                   downloadButton('downloaddatamodelvalbp', 'Download raw data'),align="center")
                 ),
                 column(2,
+                  #conditionalPanel(condition="input.plotscoremodel=='points'",checkboxInput("shownames2","show indivuals names",value=FALSE)),
                   tableOutput("tabmodelval"),
                   "Sensibility = ",textOutput("sensibilityval",inline=T), 
                   br(),
@@ -315,6 +317,86 @@ shinyUI(fluidPage(
               )
             ),
             checkboxInput("invers", "inverse positive/negative modalities " , value = FALSE)
+          ),
+          tabPanel("Details of the model", 
+            h3("Summary of the model"),
+            verbatimTextOutput("summarymodel"),
+            plotOutput("plotimportance"),
+            p(downloadButton("downloadplotimportance","Download plot"),
+              downloadButton('downloaddataplotimportance', 'Download raw data'),align="center")
+          ),
+          tabPanel("Test parameters",
+            fluidRow(
+              column(6,
+                h4("Selection Parameters"),
+                sliderInput("prctvaluestest", "Percent of values accepted",min = 0, max = 100, value = c(50,90),width="60%"),
+                checkboxGroupInput("selectmethodtest","Methods of selection ",c("selection on all samples"="nogroup","each group has more than x% of values "="bothgroups",
+                                                                                "at least one group has more than x% of more"="onegroup"),selected ="bothgroups" )
+              ),
+              column(6,
+                checkboxGroupInput("NAstructuretest", "Select variables with a NA's structure " , choices = list("TRUE /!\\"=TRUE,"FALSE"=FALSE),selected =0 ),
+                helpText("/!\\ process can be long"),
+                conditionalPanel(condition ="output.testNAstructure ",
+                  fluidRow(
+                    column(6,
+                      numericInput("thresholdNAstructuretest","pvalue for the structure test" , 0.05, min = 0, max = 1, step = 0.005),
+                      radioButtons("structdatatest", "search structure in : ",c("all dataset" = "alldata","selected dataset" = "selecteddata"))
+                    ),
+                    column(6,
+                      numericInput("maxvaluesgroupmintest","The group with the minimum number of values has at most x% of values",value = 25,min = 0,max = 100,step = 5),
+                      numericInput("minvaluesgroupmaxtest","The group with the maximum number of values has at least y% of values",value = 75,min = 0,max = 100,step = 5)
+                    )
+                  )
+                )
+              )
+            ),
+            #textOutput("testNAstructure"),
+            #hr(),
+            fluidRow(
+              column(6,h3("Transform Parameters")),
+              column(6,h3("Statistics Parameters"))
+            ),
+            fluidRow(
+              column(3,
+                checkboxGroupInput("rempNAtest", "Replacing NA (Not Attributes) by:",
+                               c("zero" = "z","mean of the cohort" = "moy",
+                                 "mean by group"="moygr","PCA estimation" = "pca","Random forest estimation /!\\" = "missforest"),selected = "moygr")
+              ),
+              column(3,
+                #br(),br(),
+                checkboxGroupInput("logtest","transform data in log",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0),
+                checkboxGroupInput("standardizationtest","standardization dataset",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0),
+                checkboxGroupInput("arcsintest","arcsine transformation",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0)
+              ),
+            #),
+            #hr(),
+            #fluidRow(
+              column(3,
+                checkboxGroupInput("testtest", "Tests",c( "No test"="notest","Wilcoxon Test" = "Wtest","Student Test" = "Ttest"),selected = "Wtest"),
+                checkboxGroupInput("adjustpvtest", "adjust p-value " , choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 1)
+              ),
+              column(3,
+                numericInput("thresholdFCtest","choise of the Fold change threshold" , 0, min =0, max = 5, step = 0.5),
+                numericInput("thresholdpvtest","choise of the p-value threshold %" , 0.05, min =0, max = 1, step = 0.01)
+              )
+            ),
+            #hr(),
+            h3("Model Parameters"),
+            fluidRow(
+              column(3,
+                checkboxGroupInput("modeltest", "Type of model to adjust :", c("No model" = "nomodel","Random Forest"="randomforest","Support Vector Machine" = "svm"),selected = "svm")
+              ),
+              column(4,
+                #numericInput("thresholdmodeltest","threshold model" ,0, min = -1, max = 1, step = 0.05),
+                checkboxGroupInput("fstest","features selection by cross validation",choices = list("TRUE /!\\"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0),
+                helpText("/!\\ process can be long")
+              ),
+              column(5,
+                p(actionButton("tunetest",h4("Test all models"),width=200),align="center")
+              )
+            ),
+            dataTableOutput("tabtestparameters"),
+            p(downloadButton("downloadtabtestparameters","Download dataset"),align="center")
           )
         )
       )

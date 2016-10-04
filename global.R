@@ -52,7 +52,8 @@ importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec="
 downloaddataset<-function(x,file,cnames=T,rnames=T){
   ext<-strsplit(x = file,split = "[.]")[[1]][2]
   if(ext=="csv"){
-    write.table(x,file,sep = ",",dec=".",col.names = cnames,row.names = rnames)
+    if(sum(cnames,rnames)==2){write.csv(x,file)}
+    else{write.table(x,file,col.names = cnames,row.names = rnames,sep=";",dec=".")}
   }
   if(ext=="xlsx"){
     write.xlsx(x,file,col.names = cnames,row.names =rnames )
@@ -359,11 +360,11 @@ testNAstructure<-function(toto,threshold=0.05,maxvaluesgroupmin=100,minvaluesgro
   return(list("varNAstructure"=totopropselect,"restestNAstructure"=resp))
 }
 
-transformdatafunction<-function(learningselect,stucturedfeatures,datastructuresfeatures,transformdataparameters){
+transformdatafunction<-function(learningselect,structuredfeatures,datastructuresfeatures,transformdataparameters){
   learningtransform<-replaceNA(toto=learningselect,rempNA=transformdataparameters$rempNA,pos=T,NAstructure = F)
-  if(!is.null(stucturedfeatures)){
-    for(i in 1:ncol(stucturedfeatures)){
-      learningtransform[which(is.na(stucturedfeatures[,i])&learningselect[,1]==as.character(datastructuresfeatures[i,"lessgroup"])),as.character(datastructuresfeatures[i,"names"])]<-0
+  if(!is.null(structuredfeatures)){
+    for(i in 1:ncol(structuredfeatures)){
+      learningtransform[which(is.na(structuredfeatures[,i])&learningselect[,1]==as.character(datastructuresfeatures[i,"lessgroup"])),as.character(datastructuresfeatures[i,"names"])]<-0
     }
   }
   if(transformdataparameters$log){ 
@@ -817,6 +818,51 @@ replaceNAoneline<-function(lineNA,toto,rempNA){
   return(linessNA)
 }
 
+plot_pred_type_distribution <- function(class,pred,names, threshold,maintitle="Score representation",printnames=F,graph=T) {
+  df<-data.frame(names,class,pred)
+  colnames(df)<-c("names","class","pred")
+  v <-rep(NA, nrow(df))
+  v <- ifelse(df$pred >= threshold & df$class == levels(class)[1], "TruePositiv", v)
+  v <- ifelse(df$pred >= threshold & df$class == levels(class)[2], "FalsePositiv", v)
+  v <- ifelse(df$pred < threshold & df$class ==  levels(class)[1], "FalseNegativ", v)
+  v <- ifelse(df$pred < threshold & df$class == levels(class)[2], "TrueNegativ", v)
+  
+  df$predtype <-factor(v,levels = c("FalseNegativ","FalsePositiv","TrueNegativ","TruePositiv"),ordered = T)
+  if(!graph){return(df)}
+  set.seed(20011203)
+  if(printnames){
+    print(1)
+    g<-ggplot(data=df, aes(x=class, y=pred)) + 
+      #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
+      geom_text(label=names,colour=palet(df$predtype,multiple = TRUE))+
+      geom_jitter(aes(color=predtype), alpha=0.6) +
+      geom_hline(yintercept=threshold, color="red", alpha=0.6) +
+      scale_color_manual(values=palet(predtype = df$predtype),name="") +
+      ggtitle(maintitle)+theme(plot.title=element_text( size=15), legend.position ="bottom")
+  }
+  else{
+    g<-ggplot(data=df, aes(x=class, y=pred)) + 
+      #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
+      geom_jitter(aes(color=predtype), alpha=0.6) +
+      geom_hline(yintercept=threshold, color="red", alpha=0.6) +
+      scale_color_manual(values=palet(predtype = df$predtype),name="") +
+      ggtitle(maintitle)+theme(plot.title=element_text( size=15), legend.position ="bottom")
+  }
+  g
+  
+}
+
+
+palet<-function(predtype,multiple=FALSE){
+  if(multiple){col<-as.character(predtype)}
+  else{col<-sort(unique(as.character(predtype)))}
+  col[which(col=="FalseNegativ")]<-"#C77CFF"
+  col[which(col=="FalsePositiv")]<-"#00BA38"
+  col[which(col=="TrueNegativ")]<-"#00BFC4"
+  col[which(col=="TruePositiv")]<-"#F8766D"
+  return(col)
+}
+
 ROCcurve<-function(validation,decisionvalues,maintitle="Roc curve",graph=T,ggplot=T){
   validation<-factor(validation,levels = rev(levels(validation)),ordered = TRUE)
   
@@ -852,13 +898,13 @@ ROCcurve<-function(validation,decisionvalues,maintitle="Roc curve",graph=T,ggplo
   }
 }
 
-scoremodelplot<-function(class,score,names,threshold,type,graph){
+scoremodelplot<-function(class,score,names,threshold,type,graph,printnames){
   if(type=="boxplot"){
     boxplotggplot(class =class,score =score,names=names,threshold=threshold,
                   graph = graph)
   }
   else if(type=="points"){
-    plot_pred_type_distribution(class = class, pred = score,names=names,threshold=threshold,graph=graph )
+    plot_pred_type_distribution(class = class, pred = score,names=names,threshold=threshold,graph=graph,printnames=printnames  )
   } 
 }
 
@@ -989,9 +1035,134 @@ nll<-function(element){
 
 sensibility<-function(predict,class){
 data<-table(predict,class)
-round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
+sensi<-round(data[1,1]/(data[1,1]+data[2,1]),digits = 3)
+return(sensi)
 }
 specificity<-function(predict,class){
   data<-table(predict,class )
   round(data[2,2]/(data[1,2]+data[2,2]),digit=3)
 }
+
+constructparameters<-function(listparameters){
+  resparameters<-data.frame(listparameters[[1]])
+  namescol<-names(listparameters)
+  
+  for(i in 2:length(listparameters)){
+    tt<-rep(listparameters[[i]],each=nrow(resparameters))
+    res<-resparameters
+    if(length(listparameters[[i]])>1){
+      for (j in 1:(length(listparameters[[i]])-1)){
+        res<-rbind(res,resparameters)
+      }
+    }
+    resparameters<-cbind(res,tt)
+  }
+  colnames(resparameters)<-namescol
+  return(resparameters)
+}
+
+testparametersfunction<-function(learning,validation,tabparameters){
+  results<-matrix(data = NA,nrow =nrow(tabparameters), ncol=9 )
+  colnames(results)<-c("number of features selected","number of differented features","number of features in model","auc learning","sensibility learning","specificity learning","auc validation","sensibility validation","specificityvalidation")
+  for (i in 1:nrow(tabparameters)){
+    print(i)
+    parameters<-tabparameters[i,]
+    if(!parameters$NAstructure){tabparameters[i,c("thresholdNAstructure","structdata","maxvaluesgroupmin","minvaluesgroupmax")]<-rep(x = NA,4)    }
+    #selectdataparameterst<-parameters[1:7]
+    selectdataparameters<<-list("prctvalues"=parameters$prctvalues,"selectmethod"=parameters$selectmethod,"NAstructure"=parameters$NAstructure,"structdata"=parameters$structdata,
+                                "thresholdNAstructure"=parameters$thresholdNAstructure,"maxvaluesgroupmin"=parameters$maxvaluesgroupmin,"minvaluesgroupmax"=parameters$minvaluesgroupmax)
+    resselectdata<<-selectdatafunction(learning = learning,selectdataparameters = selectdataparameters)
+    
+    #transformdataparameters<<-parameters[8:11]
+    transformdataparameters<<-list("log"=parameters$log,"standardization"=parameters$standardization,"arcsin"=parameters$arcsin,"rempNA"=parameters$rempNA)
+    
+    learningtransform<-transformdatafunction(learningselect = resselectdata$learningselect,structuredfeatures = resselectdata$structuredfeatures,
+                                             datastructuresfeatures =   resselectdata$datastructuresfeatures,transformdataparameters = transformdataparameters)
+    
+    testparameters<<-list("SFtest"=FALSE,"test"=parameters$test,"adjustpval"=as.logical(parameters$adjustpv),"thresholdpv"=parameters$thresholdpv,"thresholdFC"=parameters$thresholdFC)
+    restest<<-testfunction(learningtransform,testparameters )
+    
+    if(parameters$test=="notest"){
+      learningmodel<-learningtransform
+      tabparameters[i,c("adjustpv","thresholdpv","thresholdFC")]<-rep(x = NA,3)
+    }
+    else{learningmodel<-restest$tabdiff}
+    
+    if(ncol(learningmodel)!=0){
+    modelparameters<<-list("modeltype"=parameters$model,"invers"=FALSE,"thresholdmodel"=parameters$thresholdmodel,"fs"=as.logical(parameters$fs),"adjustval"=!is.null(validation))
+    validate(need(ncol(learning)!=0,"No select dataset"))
+    resmodel<<-modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
+                             transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures)
+    }
+    else{parameters$model<-"nomodel"}
+    #numberfeaturesselected
+    results[i,1]<-positive(dim(resselectdata$learningselect)[2]-1)
+    #numberfeaturesdiff
+    if(parameters$test!="notest"){
+      results[i,2]<-positive(dim(restest$tabdiff)[2]-1)
+    }
+    #numberfeaturesmodel
+    if(parameters$model!="nomodel"){
+      results[i,3]<-dim(resmodel$datalearningmodel$learningmodel)[2]-1
+      #auclearning
+      results[i,4]<-round(as.numeric(auc(roc(resmodel$datalearningmodel$reslearningmodel$classlearning,resmodel$datalearningmodel$reslearningmodel$scorelearning))),digits = 3)
+      #sensibilitylearning
+      results[i,5]<-sensibility(resmodel$datalearningmodel$reslearningmodel$predictclasslearning,resmodel$datalearningmodel$reslearningmodel$classlearning)
+      #specificitylearning
+      results[i,6]<-specificity(resmodel$datalearningmodel$reslearningmodel$predictclasslearning,resmodel$datalearningmodel$reslearningmodel$classlearning)
+      if(!is.null(validation)){
+      #aucvalidation
+      results[i,7]<-round(as.numeric(auc(roc(resmodel$datavalidationmodel$resvalidationmodel$classval,resmodel$datavalidationmodel$resvalidationmodel$scoreval))),digits = 3)
+      #sensibilityvalidation
+      results[i,8]<-sensibility(resmodel$datavalidationmodel$resvalidationmodel$predictclassval,resmodel$datavalidationmodel$resvalidationmodel$classval)
+      #specificityvalidation
+      results[i,9]<-specificity(resmodel$datavalidationmodel$resvalidationmodel$predictclassval,resmodel$datavalidationmodel$resvalidationmodel$classval)
+    }
+    }
+  }
+  return(cbind(results,tabparameters))
+}
+
+##
+importanceplot<-function(model,learningmodel,modeltype,graph=T){
+  validate(need(!is.null(model),"No model"))
+  
+  if(modeltype=="randomforest"){
+    var_importance<- data.frame(variables=rownames(model$importance),
+                                importance=as.vector(model$importance[,4]))
+
+    varo<-var_importance[order(var_importance$importance,decreasing = T),1]
+    var_importance$variables<-as.character(var_importance$variables)
+    var_importance$variables<-factor(x =var_importance$variables,levels =varo  )
+    
+    p <- ggplot(var_importance, aes(x=variables, weight=importance,fill=variables))
+    g<-p + geom_bar()+coord_flip()+ylab("Variable Importance (Mean Decrease in Gini Index)")+
+      theme(legend.position="none",plot.title=element_text( size=15))+ggtitle("Importance of variables in the model")+scale_fill_grey()
+  }
+  if(modeltype=="svm"){
+    importancevar<-importancemodelsvm(model = model,modeltype="svm",tabdiff=learningmodel,criterion = "fscore")
+    
+    var_importance<-as.data.frame(cbind(colnames(learningmodel),importancevar)[-1,])
+    var_importance[,1]<-as.character(var_importance[,1])
+    var_importance[,2]<-as.numeric(as.character(var_importance[,2]))
+    colnames(var_importance)<-c("variables","importance")
+    varo<-var_importance[order(var_importance$importance,decreasing = T),1]
+    var_importance$variables<-as.character(var_importance$variables)
+    var_importance$variables<-factor(x =var_importance$variables,levels =varo  )
+    
+    p <- ggplot(var_importance, aes(x=variables, weight=importance,fill=variables))
+    g<-p + geom_bar()+coord_flip()+ylab("Variable Importance (fscore)")+theme(legend.position="none",plot.title=element_text( size=15))+ggtitle("Importance of variables in the model")+scale_fill_grey()
+  }
+  if(!graph){return(var_importance)}
+  if(graph){
+    g
+  }
+}
+
+
+positive<-function(x){
+  if(x<0){x<-0}
+  else{x}
+  return(x)
+}
+positive(-8008644064)
