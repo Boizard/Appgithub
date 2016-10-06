@@ -190,7 +190,7 @@ shinyServer(function(input, output,session) {
   DATA<-reactive({
      importparameters<<-list("learningfile"=input$learningfile,"validationfile"=input$validationfile,"modelfile"=input$modelfile,"extension" = input$filetype,
                             "NAstring"=input$NAstring,"sheetn"=input$sheetn,"skipn"=input$skipn,"dec"=input$dec,"sep"=input$sep,
-                            "transpose"=input$transpose,"zeroegalNA"=input$zeroegalNA,confirmdatabutton=input$confirmdatabutton)
+                            "transpose"=input$transpose,"zeroegalNA"=input$zeroegalNA,confirmdatabutton=input$confirmdatabutton,invers=input$invers)
 
      out<-tryCatch(importfunction(importparameters),error=function(e) e )
 #      if(any(class(out)=="error"))print("error")
@@ -415,10 +415,11 @@ output$downloaddatahist <- downloadHandler(
 
 #########
 TEST<-reactive({
-  testparameters<<-list("SFtest"=input$SFtest,"test"=input$test,"adjustpval"=input$adjustpv,"thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC)
+  testparameters<<-list("SFtest"=input$SFtest,"test"=input$test,"adjustpval"=input$adjustpv,"thresholdpv"=input$thresholdpv,
+                        "thresholdFC"=input$thresholdFC,"invers"=input$invers)
   learningtransform<<-TRANSFORMDATA()$LEARNINGTRANSFORM
-  restest<-testfunction(learningtransform,testparameters )
-  list(LEARNINGDIFF=restest$tabdiff,DATATEST=restest$datatest,HYPOTHESISTEST=restest$hypothesistest,
+  restest<<-testfunction(tabtransform = learningtransform,testparameters = testparameters )
+  list(LEARNINGDIFF=restest$tabdiff,DATATEST=restest$datatest,HYPOTHESISTEST=restest$hypothesistest,GROUP=restest$group,
        USEDDATA=restest$useddata,testparameters=restest$testparameters)
 
 })
@@ -435,6 +436,12 @@ output$downloaddatastatistics<- downloadHandler(
     downloaddataset(TEST()$DATATEST, file)
   }
 )
+output$positif<-renderText({
+  res<-levels(DATA()$LEARNING[,1])[1]
+})
+output$negatif<-renderText({
+  res<-levels(DATA()$LEARNING[,1])[2]
+})
 output$volcanoplot <- renderPlot({
   datatest<<-TEST()$DATATEST
   useddata<<-TEST()$USEDDATA
@@ -509,7 +516,7 @@ MODEL<-reactive({
   validation<<-DATA()$VALIDATION
   datastructuresfeatures<<-SELECTDATA()$DATASTRUCTUREDFEATURES
   transformdataparameters<<-TRANSFORMDATA()$transformdataparameters
-  modelparameters<<-list("modeltype"=input$model,"invers"=input$invers,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
+  modelparameters<<-list("modeltype"=input$model,"invers"=F,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
   validate(need(ncol(learningmodel)!=0,"No select dataset"))
   
 
@@ -580,12 +587,7 @@ output$sensibilitydecouv<-renderText({
   datalearningmodel<-MODEL()$DATALEARNINGMODEL
   sensibility(predict = datalearningmodel$reslearningmodel$predictclasslearning,class = datalearningmodel$reslearningmodel$classlearning)
 })
-output$positif<-renderText({
-  res<-MODEL()$GROUPS[1]
-})
-output$negatif<-renderText({
-  lev<-MODEL()$GROUPS[2]
-})
+
 output$specificitydecouv<-renderText({
   datalearningmodel<-MODEL()$DATALEARNINGMODEL
   specificity(predict = datalearningmodel$reslearningmodel$predictclasslearning,class = datalearningmodel$reslearningmodel$classlearning )

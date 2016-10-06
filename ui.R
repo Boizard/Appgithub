@@ -35,7 +35,7 @@ shinyUI(fluidPage(
                 radioButtons('sep', 'Separator',c(Comma=',',Semicolon=';',Tab='\t'),inline = TRUE )),
               conditionalPanel(condition ="input.filetype=='xlsx' ",
                 column(6,numericInput("skipn",label = "number of lines to skip",value = 0)),
-                column(6,br(),numericInput("sheetn",label = "sheet",value = 1)))
+                column(6,numericInput("sheetn",label = "sheet",value = 1)))
             ),hr(),
               checkboxInput("transpose","Transpose the table",FALSE),
               checkboxInput("zeroegalNA","consider 0 as NA",FALSE)
@@ -64,6 +64,14 @@ shinyUI(fluidPage(
       ), 
       conditionalPanel(condition ="input.confirmdatabutton!=0",
         hr(),
+        fluidRow(
+          column(3,checkboxInput("invers", "inverse" , value = FALSE)),
+          column(8,
+            p(textOutput("positif",inline=T),HTML( '&#x21D2;'), "case ",br(),
+            textOutput("negatif",inline=T),HTML( '&#x21D2;'), "control",align="center")
+          )
+        ),
+        hr(),
         radioButtons("paramdownplot","Download images as : ",choices=list("png"="png","jpg"="jpg","pdf"="pdf"),selected="png"),
         radioButtons("paramdowntable","Download datasets as : ",choices=list("csv"="csv","xlsx"="xlsx"),selected="csv"),
         hr(),
@@ -81,6 +89,7 @@ shinyUI(fluidPage(
       conditionalPanel(condition ="!output.fileUploaded & !output.modelUploaded",
         h4("The purpose of this application is to calculate basics tests for omics datas. The datas needed for this application are numeric datas. Each individuals are part of one of two groups.
         Tests select variables which are significatively different between the two groups.",align="center"),br(),
+       
         h4("This application is developped in the 12th team of I2MC for internal used.",align="center"),br(),br(),br(),
         fluidRow(column(6,imageOutput("image1")),column(2,imageOutput("image2")))
 
@@ -218,7 +227,9 @@ shinyUI(fluidPage(
                 checkboxInput("adjustpv", "adjust p-value " , value = FALSE),
                 conditionalPanel(condition ="input.help", helpText("Benjamini & Hochberg correction"))
               )
-            ),p(downloadButton('downloaddatastatistics', 'Download statistics'),downloadButton('downloadddatadiff', 'Download differently expressed variables'),align="center"),
+            ),br(),
+# actionButton("inversrol", div(HTML("<p>&#x21BB</p>")),width=5),
+            p(downloadButton('downloaddatastatistics', 'Download statistics'),downloadButton('downloadddatadiff', 'Download differently expressed variables'),align="center"),
             hr(),
             conditionalPanel(condition= "input.test== 'Wtest' || input.test== 'Ttest'",
               fluidRow(
@@ -254,11 +265,10 @@ shinyUI(fluidPage(
                 conditionalPanel(condition ="input.help", helpText("The threshold of the score is used for the validation")),
                 checkboxInput("fs","features selection by cross validation /!\\ ",F),
                 helpText("/!\\ process can be long")
-              )
-            ),
+              ),
             conditionalPanel(condition ="output.fileUploadedval & input.model!='nomodel'  ",
               checkboxInput("adjustval","Adjust model on validation data",F)
-            ),
+            )),
             hr(),
             conditionalPanel(condition ="input.model!='nomodel'  ",
               fluidRow(
@@ -282,9 +292,6 @@ shinyUI(fluidPage(
                 ),
                 column(2,radioButtons("plotscoremodel", "",c( "boxplot"="boxplot","points" = "points")),
                   conditionalPanel(condition="input.plotscoremodel=='points'",checkboxInput("shownames1","show indivuals names",value=FALSE)),
-                textOutput("positif",inline=T), " = positif",
-                br(),
-                textOutput("negatif",inline=T), " = negatif"),
                 br(),
                 tableOutput("tabmodeldecouv"),
                 "Sensibility = ",textOutput("sensibilitydecouv",inline=T), 
@@ -315,9 +322,8 @@ shinyUI(fluidPage(
                   "Specificity = ",textOutput("specificityval",inline=T)
                 )
               )
-            ),
-            checkboxInput("invers", "inverse positive/negative modalities " , value = FALSE)
-          ),
+            )
+          )),
           tabPanel("Details of the model", 
             h3("Summary of the model"),
             verbatimTextOutput("summarymodel"),

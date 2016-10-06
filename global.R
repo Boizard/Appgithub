@@ -1,5 +1,6 @@
 
 #Packages
+rm(list=ls())
 usePackage <- function(p) 
 {
   if (!is.element(p, installed.packages()[,1]))
@@ -149,6 +150,10 @@ importfunction<-function(importparameters){
     #}
     if(importparameters$confirmdatabutton!=0){
       learning<-confirmdata(toto = learning)
+      if(importparameters$invers){learning[,1]<-factor(learning[,1],levels = rev(levels(learning[,1])))}
+      
+      #learning<-learning[-which(apply(X = learning,MARGIN=1,function(x){sum(is.na(x))})==ncol(learning)),]
+      
 #       lev<-levels(x = tablearn[,1])
 #       print(lev)
 #       names(lev)<-c("positif","negatif")
@@ -174,6 +179,10 @@ importfunction<-function(importparameters){
     # }
     if(importparameters$confirmdatabutton!=0){
       validation<-confirmdata(toto = validation)
+      if(importparameters$invers){validation[,1]<-factor(validation[,1],levels = rev(levels(validation[,1])))}
+      
+      #validation<-validation[-which(apply(X = validation,MARGIN=1,function(x){sum(is.na(x))})==ncol(validation)),]
+        
     }
     
   }
@@ -522,7 +531,7 @@ testfunction<-function(tabtransform,testparameters){
     }
   useddata<-data.frame("names"=datatest[,1],"pval"=pval,"logFC"=datatest[,5],"mean1"=datatest[,8],"mean2"=datatest[,9])
   }
-  return(list("tabdiff"=tabdiff,"datatest"=datatest,"hypothesistest"=datatesthypothesis,"useddata"=useddata,"testparameters"=testparameters))
+  return(list("tabdiff"=tabdiff,"datatest"=datatest,"hypothesistest"=datatesthypothesis,"useddata"=useddata,"group"=levels(tabdiff[,1]),"testparameters"=testparameters))
 }
   
 
@@ -587,6 +596,7 @@ volcanoplot<-function(logFC,pval,thresholdFC=0,thresholdpv=0.05,graph=T,maintitl
 barplottest<-function(feature,logFC,levels,pval,mean1,mean2,thresholdpv=0.05,thresholdFC=1,graph=T,maintitle="Mean by group for differentially expressed variables"){
   feature<-rep(feature,each=2)
   group<-rep(c(levels[1],levels[2]),times=(length(feature)/2))
+  group<-factor(group,levels =c(levels[1],levels[2]))
   pval2<-rep((pval< thresholdpv),each=2)
   logFC2<-rep((abs(logFC)> thresholdFC),each=2) 
   mean<-vector() 
@@ -596,7 +606,7 @@ barplottest<-function(feature,logFC,levels,pval,mean1,mean2,thresholdpv=0.05,thr
   data<-data[order(data$pval),]
   if(!graph){
     data<-data[order(data[,1]),]
-  return(data[which((data$pval2==TRUE)& (data$logFC2==TRUE)),c(1,2,5)])}
+    return(data[which((data$pval2==TRUE)& (data$logFC2==TRUE)),c(1,2,5)])}
   else{
     ggplot(data[which( ( data$pval2) & (data$logFC2) ),], aes(feature, mean,fill=group))+geom_bar(stat="identity", position="dodge")+ 
       ggtitle(maintitle)+theme(plot.title=element_text( size=15))
@@ -818,50 +828,8 @@ replaceNAoneline<-function(lineNA,toto,rempNA){
   return(linessNA)
 }
 
-plot_pred_type_distribution <- function(class,pred,names, threshold,maintitle="Score representation",printnames=F,graph=T) {
-  df<-data.frame(names,class,pred)
-  colnames(df)<-c("names","class","pred")
-  v <-rep(NA, nrow(df))
-  v <- ifelse(df$pred >= threshold & df$class == levels(class)[1], "TruePositiv", v)
-  v <- ifelse(df$pred >= threshold & df$class == levels(class)[2], "FalsePositiv", v)
-  v <- ifelse(df$pred < threshold & df$class ==  levels(class)[1], "FalseNegativ", v)
-  v <- ifelse(df$pred < threshold & df$class == levels(class)[2], "TrueNegativ", v)
-  
-  df$predtype <-factor(v,levels = c("FalseNegativ","FalsePositiv","TrueNegativ","TruePositiv"),ordered = T)
-  if(!graph){return(df)}
-  set.seed(20011203)
-  if(printnames){
-    print(1)
-    g<-ggplot(data=df, aes(x=class, y=pred)) + 
-      #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
-      geom_text(label=names,colour=palet(df$predtype,multiple = TRUE))+
-      geom_jitter(aes(color=predtype), alpha=0.6) +
-      geom_hline(yintercept=threshold, color="red", alpha=0.6) +
-      scale_color_manual(values=palet(predtype = df$predtype),name="") +
-      ggtitle(maintitle)+theme(plot.title=element_text( size=15), legend.position ="bottom")
-  }
-  else{
-    g<-ggplot(data=df, aes(x=class, y=pred)) + 
-      #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
-      geom_jitter(aes(color=predtype), alpha=0.6) +
-      geom_hline(yintercept=threshold, color="red", alpha=0.6) +
-      scale_color_manual(values=palet(predtype = df$predtype),name="") +
-      ggtitle(maintitle)+theme(plot.title=element_text( size=15), legend.position ="bottom")
-  }
-  g
-  
-}
 
 
-palet<-function(predtype,multiple=FALSE){
-  if(multiple){col<-as.character(predtype)}
-  else{col<-sort(unique(as.character(predtype)))}
-  col[which(col=="FalseNegativ")]<-"#C77CFF"
-  col[which(col=="FalsePositiv")]<-"#00BA38"
-  col[which(col=="TrueNegativ")]<-"#00BFC4"
-  col[which(col=="TruePositiv")]<-"#F8766D"
-  return(col)
-}
 
 ROCcurve<-function(validation,decisionvalues,maintitle="Roc curve",graph=T,ggplot=T){
   validation<-factor(validation,levels = rev(levels(validation)),ordered = TRUE)
@@ -899,24 +867,71 @@ ROCcurve<-function(validation,decisionvalues,maintitle="Roc curve",graph=T,ggplo
 }
 
 scoremodelplot<-function(class,score,names,threshold,type,graph,printnames){
+  class<-factor(class,levels =rev(levels(class)))
+
   if(type=="boxplot"){
     boxplotggplot(class =class,score =score,names=names,threshold=threshold,
                   graph = graph)
   }
   else if(type=="points"){
-    plot_pred_type_distribution(class = class, pred = score,names=names,threshold=threshold,graph=graph,printnames=printnames  )
+    plot_pred_type_distribution(class = class, score = score,names=names,threshold=threshold,graph=graph,printnames=printnames  )
   } 
 }
 
 boxplotggplot<-function(class,score,names,threshold,maintitle="svm score's Boxplot ",graph=T){
   data<-data.frame("names"=names,"class"= class,"score"=as.vector(score))
   if(!graph){return(data)}
-  p<-ggplot(data, aes(x=class, y=score, fill=class)) +
-    geom_boxplot()+
-    geom_hline(yintercept=threshold, color="red", alpha=0.6)+
+  p<-ggplot(data, aes(x=class, y=score)) +
+    scale_fill_manual( values = c("#00BFC4","#F8766D") )+
+    geom_boxplot(aes(fill=class))+
+    geom_hline(yintercept=threshold, color='red', alpha=0.6)+
     ggtitle(maintitle)+theme(plot.title=element_text( size=15))
   
   p
+}
+
+plot_pred_type_distribution <- function(class,score,names, threshold,maintitle="Score representation",printnames=F,graph=T) {
+  #in this function the levels of the class is inverted in order to have the control group on the left side of the graph
+  df<-data.frame(names,class,score)
+  colnames(df)<-c("names","class","score")
+  v <-rep(NA, nrow(df))
+  v <- ifelse(df$score >= threshold & df$class == levels(class)[2], "TruePositiv", v)
+  v <- ifelse(df$score >= threshold & df$class == levels(class)[1], "FalsePositiv", v)
+  v <- ifelse(df$score < threshold & df$class ==  levels(class)[2], "FalseNegativ", v)
+  v <- ifelse(df$score < threshold & df$class == levels(class)[1], "TrueNegativ", v)
+  
+  df$predtype <-factor(v,levels = c("FalseNegativ","FalsePositiv","TrueNegativ","TruePositiv"),ordered = T)
+  if(!graph){return(df)}
+  set.seed(20011203)
+  if(printnames){
+    g<-ggplot(data=df, aes(x=class, y=score)) + 
+      #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
+      geom_text(label=names,colour=palet(df$predtype,multiple = TRUE))+
+      geom_jitter(aes(color=predtype), alpha=0.6) +
+      geom_hline(yintercept=threshold, color="red", alpha=0.6) +
+      scale_color_manual(values=palet(predtype = df$predtype),name="") +
+      ggtitle(maintitle)+theme(plot.title=element_text( size=15), legend.position ="bottom")
+  }
+  else{
+    g<-ggplot(data=df, aes(x=class, y=score)) + 
+      #geom_violin(fill=rgb(1,1,1,alpha=0.6), color=NA) + 
+      geom_jitter(aes(color=predtype), alpha=0.6) +
+      geom_hline(yintercept=threshold, color="red", alpha=0.6) +
+      scale_color_manual(values=palet(predtype = df$predtype),name="") +
+      ggtitle(maintitle)+theme(plot.title=element_text( size=15), legend.position ="bottom")
+  }
+  g
+  
+}
+
+palet<-function(predtype,multiple=FALSE){
+  if(multiple){col<-as.character(predtype)}
+  else{col<-sort(unique(as.character(predtype)))}
+  col[which(col=="FalseNegativ")]<-"#C77CFF"
+  col[which(col=="FalsePositiv")]<-"#00BA38"
+  col[which(col=="TrueNegativ")]<-"#00BFC4"
+  col[which(col=="TruePositiv")]<-"#F8766D"
+  return(col)
 }
 
 
