@@ -32,20 +32,30 @@ importfile<-function (datapath,extension,NAstring="NA",sheet=1,skiplines=0,dec="
   # datapath: path of the file
   #extention: extention of the file : csv, xls, ou xlsx
   if(extension=="csv"){
-    toto <- read.csv2(datapath,header = T,sep =sep,dec=dec,na.strings = NAstring,stringsAsFactors = F,row.names=1,check.names = F )
+    toto <<- read.csv2(datapath,header = F,sep =sep,dec=dec,na.strings = NAstring,stringsAsFactors = F,row.names=NULL,check.names = F )
   }
   if(extension=="xlsx"){
     options(warn=-1)
     filerm<<-file.rename(datapath,paste(datapath, ".xlsx", sep=""))
     options(warn=0)
-    toto <-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = T,skip = skiplines,sheet = sheet)
+    toto <<-read_excel(paste(datapath, ".xlsx", sep=""),na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
     # toto <-read.xlsx2(file = datapath,sheetIndex = sheet)
     #toto <-read_excel(datapath,na=NAstring,col_names = F,skip = skiplines,sheet = sheet)
-    rnames<-as.character(as.matrix(toto[,1]))
-      toto<-toto[,-1]
-      row.names(toto)<-rnames
-      
   }
+  #remove empty column
+  if(length(which(apply(X = toto,MARGIN=2,function(x){sum(is.na(x))})==nrow(toto)))!=0){
+    toto<-toto[,-which(apply(X = toto,MARGIN=2,function(x){sum(is.na(x))})==nrow(toto))]}
+  #remove empty row
+  if(length(which(apply(X = toto,MARGIN=1,function(x){sum(is.na(x))})==ncol(toto)))!=0){
+    toto<-toto[-which(apply(X = toto,MARGIN=1,function(x){sum(is.na(x))})==ncol(toto)),]}
+  
+  rnames<-as.character(as.matrix(toto[,1]))
+  cnames<-as.character(as.matrix(toto[1,]))
+  toto<-toto[,-1]
+  toto<-toto[-1,]
+  row.names(toto)<-rnames[-1]
+  colnames(toto)<-cnames[-1]
+
   toto<-as.data.frame(toto)
   return(toto)
 }
@@ -531,7 +541,7 @@ testfunction<-function(tabtransform,testparameters){
     }
   useddata<-data.frame("names"=datatest[,1],"pval"=pval,"logFC"=datatest[,5],"mean1"=datatest[,8],"mean2"=datatest[,9])
   }
-  return(list("tabdiff"=tabdiff,"datatest"=datatest,"hypothesistest"=datatesthypothesis,"useddata"=useddata,"group"=levels(tabdiff[,1]),"testparameters"=testparameters))
+  return(list("tabdiff"=tabdiff,"datatest"=datatest,"hypothesistest"=datatesthypothesis,"useddata"=useddata,"testparameters"=testparameters))
 }
   
 
@@ -693,10 +703,10 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
     #Build model
     if (modelparameters$modeltype=="randomforest"){
       set.seed(20011203)
-#       model <- randomForest(learningmodel[,-1],learningmodel[,1],ntree=500,
-#                              importance=T,keep.forest=T)
+  #model <- randomForest(learningmodel[,-1],learningmodel[,1],ntree=500,
+   #                           importance=T,keep.forest=T)
       
-      model<-tuneRF(learningmodel[,-1],learningmodel[,1],doBest=T,importance=T,plot=F,trace=F)
+      model<-tuneRF(x = learningmodel[,-1],y = learningmodel[,1],doBest=T,importance=T,plot=F,trace=F)
       if(modelparameters$fs){
         featureselect<-selectedfeature(model=model,modeltype = "randomforest",tab=learningmodel,criterionimportance = "fscore",criterionmodel = "auc")
         model<-featureselect$model
@@ -765,8 +775,9 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
         validationdiff[which(is.na(validationdiff),arr.ind = T)[which(which(is.na(validationdiff),arr.ind = T)[,2]%in%which(colnames(validationdiff)%in%datastructuresfeatures$names)),]]<-0
       }
       #
-      validationmodel<- replaceNAvalidation(validationdiff[,-1],toto=learningmodel[,-1],rempNA=transformdataparameters$rempNA)
-      
+      validationmodel<<- replaceNAvalidation(as.data.frame(validationdiff[,-1]),toto=as.data.frame(learningmodel[,-1]),rempNA=transformdataparameters$rempNA)
+      colnames(validationmodel)<-colnames(validationdiff)[-1]
+      rownames(validationmodel)<-rownames(validationdiff)
       
       #prediction a partir du model
       if(modelparameters$modeltype=="randomforest"){
@@ -1078,7 +1089,7 @@ constructparameters<-function(listparameters){
 
 testparametersfunction<-function(learning,validation,tabparameters){
   results<-matrix(data = NA,nrow =nrow(tabparameters), ncol=9 )
-  colnames(results)<-c("number of features selected","number of differented features","number of features in model","auc learning","sensibility learning","specificity learning","auc validation","sensibility validation","specificityvalidation")
+  colnames(results)<-c("auc validation","sensibility validation","specificityvalidation","auc learning","sensibility learning","specificity learning","number of features in model","number of differented features","number of features selected")
   for (i in 1:nrow(tabparameters)){
     print(i)
     parameters<-tabparameters[i,]
@@ -1106,19 +1117,25 @@ testparametersfunction<-function(learning,validation,tabparameters){
     if(ncol(learningmodel)!=0){
     modelparameters<<-list("modeltype"=parameters$model,"invers"=FALSE,"thresholdmodel"=parameters$thresholdmodel,"fs"=as.logical(parameters$fs),"adjustval"=!is.null(validation))
     validate(need(ncol(learning)!=0,"No select dataset"))
-    resmodel<<-modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
-                             transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures)
+    
+
+    #resmodel<<-modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
+    #                         transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures)
+    out<- tryCatch(modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
+                                 transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures), error = function(e) e)
+    if(any(class(out)=="error"))parameters$model<-"nomodel"
+    else{resmodel<-out}
     }
     else{parameters$model<-"nomodel"}
     #numberfeaturesselected
-    results[i,1]<-positive(dim(resselectdata$learningselect)[2]-1)
+    results[i,9]<-positive(dim(resselectdata$learningselect)[2]-1)
     #numberfeaturesdiff
     if(parameters$test!="notest"){
-      results[i,2]<-positive(dim(restest$tabdiff)[2]-1)
+      results[i,8]<-positive(dim(restest$tabdiff)[2]-1)
     }
     #numberfeaturesmodel
     if(parameters$model!="nomodel"){
-      results[i,3]<-dim(resmodel$datalearningmodel$learningmodel)[2]-1
+      results[i,7]<-dim(resmodel$datalearningmodel$learningmodel)[2]-1
       #auclearning
       results[i,4]<-round(as.numeric(auc(roc(resmodel$datalearningmodel$reslearningmodel$classlearning,resmodel$datalearningmodel$reslearningmodel$scorelearning))),digits = 3)
       #sensibilitylearning
@@ -1127,11 +1144,11 @@ testparametersfunction<-function(learning,validation,tabparameters){
       results[i,6]<-specificity(resmodel$datalearningmodel$reslearningmodel$predictclasslearning,resmodel$datalearningmodel$reslearningmodel$classlearning)
       if(!is.null(validation)){
       #aucvalidation
-      results[i,7]<-round(as.numeric(auc(roc(resmodel$datavalidationmodel$resvalidationmodel$classval,resmodel$datavalidationmodel$resvalidationmodel$scoreval))),digits = 3)
+      results[i,1]<-round(as.numeric(auc(roc(resmodel$datavalidationmodel$resvalidationmodel$classval,resmodel$datavalidationmodel$resvalidationmodel$scoreval))),digits = 3)
       #sensibilityvalidation
-      results[i,8]<-sensibility(resmodel$datavalidationmodel$resvalidationmodel$predictclassval,resmodel$datavalidationmodel$resvalidationmodel$classval)
+      results[i,2]<-sensibility(resmodel$datavalidationmodel$resvalidationmodel$predictclassval,resmodel$datavalidationmodel$resvalidationmodel$classval)
       #specificityvalidation
-      results[i,9]<-specificity(resmodel$datavalidationmodel$resvalidationmodel$predictclassval,resmodel$datavalidationmodel$resvalidationmodel$classval)
+      results[i,3]<-specificity(resmodel$datavalidationmodel$resvalidationmodel$predictclassval,resmodel$datavalidationmodel$resvalidationmodel$classval)
     }
     }
   }

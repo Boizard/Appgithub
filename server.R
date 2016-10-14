@@ -419,7 +419,7 @@ TEST<-reactive({
                         "thresholdFC"=input$thresholdFC,"invers"=input$invers)
   learningtransform<<-TRANSFORMDATA()$LEARNINGTRANSFORM
   restest<<-testfunction(tabtransform = learningtransform,testparameters = testparameters )
-  list(LEARNINGDIFF=restest$tabdiff,DATATEST=restest$datatest,HYPOTHESISTEST=restest$hypothesistest,GROUP=restest$group,
+  list(LEARNINGDIFF=restest$tabdiff,DATATEST=restest$datatest,HYPOTHESISTEST=restest$hypothesistest,#GROUP=restest$group,
        USEDDATA=restest$useddata,testparameters=restest$testparameters)
 
 })
@@ -463,7 +463,7 @@ output$nvarselect2<-renderText({
   di1<-dim(x = SELECTDATA()$LEARNINGSELECT)[2]-1  
 })  
 output$nbdiff<-renderText({
-  nbdiff = ncol(TEST()$LEARNINGDIFF)-1
+  nbdiff = positive(ncol(TEST()$LEARNINGDIFF)-1)
 })
 
 
@@ -597,7 +597,7 @@ output$specificitydecouv<-renderText({
 output$downloaddatavalidation <- downloadHandler(
   filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
   content = function(file) {
-    downloaddataset(  -MODEL()$DATAVALIDATIONMODEL$validationmodel, file) })
+    downloaddataset(  MODEL()$DATAVALIDATIONMODEL$validationmodel, file) })
 
 
 output$plotmodelvalroc <- renderPlot({
@@ -679,15 +679,14 @@ outputOptions(output, 'testNAstructure', suspendWhenHidden=FALSE)
 
 TESTPARAMETERS <- eventReactive(input$tunetest, { 
   prctvaluestest<-seq(input$prctvaluestest[1],input$prctvaluestest[2],by = 10)
-  print("rr")
   listparameters<<-list("prctvalues"=prctvaluestest,"selectmethod"=input$selectmethodtest,"NAstructure"=as.logical(input$NAstructuretest),
                         "thresholdNAstructure"=input$thresholdNAstructuretest,"structdata"=input$structdatatest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
                         "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"rempNA"=input$rempNAtest,"log"=as.logical(input$logtest),
                         "standardization"=as.logical(input$standardizationtest),"arcsin"=as.logical(input$arcsintest),"test"=input$testtest,"adjustpv"=as.logical(input$adjustpvtest),
                         "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"model"=input$modeltest,"thresholdmodel"=0,"fs"=as.logical(input$fstest))
-  
-    validate(need( sum(do.call(rbind, lapply(listparameters, FUN=function(x){as.numeric(is.null(x))})))==0,"One of the parameters is empty"))
-    tabparameters<-constructparameters(listparameters)
+    length(listparameters$prctvalues)
+    validate(need( sum(do.call(rbind, lapply(listparameters, FUN=function(x){length(x)==0})))==0,"One of the parameters is empty"))
+    tabparameters<<-constructparameters(listparameters)
     tabparameters$thresholdmodel[which(tabparameters$model=="randomforest")]<-0.5
     validation<<-DATA()$VALIDATION
     learning<<-DATA()$LEARNING
@@ -715,7 +714,10 @@ output$tabtestparameters<-renderDataTable({
   cbind(Names=rownames(resparameters),resparameters)},
   options = list(    "orderClasses" = F,
                      "responsive" = F,
-                     "pageLength" = 100))
+                     "pageLength" = 100,rowCallback = I('
+            function(nRow, aData, iDisplayIndex, iDisplayIndexFull) {$("td:eq(1)", nRow).css("color", "red");}'
+                                                        )))
+
 output$downloadtabtestparameters <- downloadHandler(
   filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
   content = function(file) {

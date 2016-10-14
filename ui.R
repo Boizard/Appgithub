@@ -340,7 +340,7 @@ shinyUI(fluidPage(
                                                                                 "at least one group has more than x% of more"="onegroup"),selected ="bothgroups" )
               ),
               column(6,
-                checkboxGroupInput("NAstructuretest", "Select variables with a NA's structure " , choices = list("TRUE /!\\"=TRUE,"FALSE"=FALSE),selected =0 ),
+                checkboxGroupInput("NAstructuretest", "Select variables with a NA's structure " , choices = list("TRUE /!\\"=TRUE,"FALSE"=FALSE),selected ="FALSE"),
                 helpText("/!\\ process can be long"),
                 conditionalPanel(condition ="output.testNAstructure ",
                   fluidRow(
@@ -370,16 +370,16 @@ shinyUI(fluidPage(
               ),
               column(3,
                 #br(),br(),
-                checkboxGroupInput("logtest","transform data in log",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0),
-                checkboxGroupInput("standardizationtest","standardization dataset",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0),
-                checkboxGroupInput("arcsintest","arcsine transformation",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0)
+                checkboxGroupInput("logtest","transform data in log",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = "FALSE"),
+                checkboxGroupInput("standardizationtest","standardization dataset",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = "FALSE"),
+                checkboxGroupInput("arcsintest","arcsine transformation",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected ="FALSE")
               ),
             #),
             #hr(),
             #fluidRow(
               column(3,
                 checkboxGroupInput("testtest", "Tests",c( "No test"="notest","Wilcoxon Test" = "Wtest","Student Test" = "Ttest"),selected = "Wtest"),
-                checkboxGroupInput("adjustpvtest", "adjust p-value " , choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 1)
+                checkboxGroupInput("adjustpvtest", "adjust p-value " , choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = "FALSE")
               ),
               column(3,
                 numericInput("thresholdFCtest","choise of the Fold change threshold" , 0, min =0, max = 5, step = 0.5),
@@ -394,7 +394,7 @@ shinyUI(fluidPage(
               ),
               column(4,
                 #numericInput("thresholdmodeltest","threshold model" ,0, min = -1, max = 1, step = 0.05),
-                checkboxGroupInput("fstest","features selection by cross validation",choices = list("TRUE /!\\"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = 0),
+                checkboxGroupInput("fstest","features selection by cross validation",choices = list("TRUE /!\\"=TRUE,"FALSE"=FALSE),inline = TRUE,selected ="FALSE"),
                 helpText("/!\\ process can be long")
               ),
               column(5,
