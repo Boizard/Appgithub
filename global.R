@@ -1,4 +1,5 @@
-
+options(xtable.include.colnames=T)
+options(xtable.include.rownames=T)
 #Packages
 rm(list=ls())
 usePackage <- function(p) 
@@ -387,7 +388,7 @@ transformdatafunction<-function(learningselect,structuredfeatures,datastructures
     }
   }
   if(transformdataparameters$log){ 
-    learningtransform[,-1]<-log(x = learningtransform[,-1]+1)}
+    learningtransform[,-1]<-transformationlog(x = learningtransform[,-1]+1,logtype=transformdataparameters$logtype)}
   if(transformdataparameters$standardization){
     learningtransform[,-1]<-scale(learningtransform[,-1], center = F, scale = TRUE)
   }
@@ -396,6 +397,13 @@ transformdatafunction<-function(learningselect,structuredfeatures,datastructures
     learningtransform[,-1]<-asin(sqrt(learningtransform[,-1]))
   }
   return(learningtransform)}
+
+transformationlog<-function(x,logtype){
+  if(logtype=="log10"){x<-log10(x)}
+  if(logtype=="log2"){x<-log2(x)}
+  if(logtype=="logn"){x<-log(x)}
+  return(x)
+}
 
 histplot<-function(toto,graph=T){
 
@@ -762,7 +770,7 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
       colnames(validation)[1]<-"group"
       validationdiff<-validation[,which(colnames(validation)%in%colnames(learningmodel))]
       if(transformdataparameters$log) { 
-        validationdiff[,-1]<-log(x = validationdiff[,-1]+1)}
+        validationdiff[,-1]<-transformationlog(x = validationdiff[,-1]+1,logtype =transformdataparameters$logtype )}
       if(transformdataparameters$standardization){
         validationdiff[,-1]<-scale(validationdiff[,-1], center = F, scale = TRUE)
       }
@@ -951,7 +959,8 @@ selectedfeature<-function(model,modeltype,tab,criterionimportance,criterionmodel
   i=0
   tabdiff2<-tab
   while(rmvar!=0){
-    print(i<-i+1)
+    i<-i+1
+    print(paste(i,"eliminate features"))
     tabdiff2<-tabdiff2[,-rmvar]
     if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)}
     if (modeltype=="randomforest"){model <- randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T)}
@@ -1090,8 +1099,9 @@ constructparameters<-function(listparameters){
 testparametersfunction<-function(learning,validation,tabparameters){
   results<-matrix(data = NA,nrow =nrow(tabparameters), ncol=9 )
   colnames(results)<-c("auc validation","sensibility validation","specificityvalidation","auc learning","sensibility learning","specificity learning","number of features in model","number of differented features","number of features selected")
+  print(paste(nrow(tabparameters),"parameters "))
   for (i in 1:nrow(tabparameters)){
-    print(i)
+    print(paste(i))
     parameters<-tabparameters[i,]
     if(!parameters$NAstructure){tabparameters[i,c("thresholdNAstructure","structdata","maxvaluesgroupmin","minvaluesgroupmax")]<-rep(x = NA,4)    }
     #selectdataparameterst<-parameters[1:7]
@@ -1100,7 +1110,8 @@ testparametersfunction<-function(learning,validation,tabparameters){
     resselectdata<<-selectdatafunction(learning = learning,selectdataparameters = selectdataparameters)
     
     #transformdataparameters<<-parameters[8:11]
-    transformdataparameters<<-list("log"=parameters$log,"standardization"=parameters$standardization,"arcsin"=parameters$arcsin,"rempNA"=parameters$rempNA)
+    if(!parameters$log){tabparameters[i,"logtype"]<-NA}
+    transformdataparameters<<-list("log"=parameters$log,"logtype"=parameters$logtype,"standardization"=parameters$standardization,"arcsin"=parameters$arcsin,"rempNA"=parameters$rempNA)
     
     learningtransform<-transformdatafunction(learningselect = resselectdata$learningselect,structuredfeatures = resselectdata$structuredfeatures,
                                              datastructuresfeatures =   resselectdata$datastructuresfeatures,transformdataparameters = transformdataparameters)

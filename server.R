@@ -51,7 +51,7 @@ shinyServer(function(input, output,session) {
     selectdataparameters<<-list("prctvalues"=input$prctvalues,"selectmethod"=input$selectmethod,"NAstructure"=input$NAstructure,"structdata"=input$structdata,
                                 "thresholdNAstructure"=input$thresholdNAstructure,"maxvaluesgroupmin"=input$maxvaluesgroupmin,"minvaluesgroupmax"=input$minvaluesgroupmax)
     
-    transformdataparameters<<-list("log"=input$log,"standardization"=input$standardization,"arcsin"=input$arcsin,"rempNA"=input$rempNA)
+    transformdataparameters<<-list("log"=input$log,"logtype"=input$logtype,"standardization"=input$standardization,"arcsin"=input$arcsin,"rempNA"=input$rempNA)
     
     
     testparameters<<-list("SFtest"=input$SFtest,"test"=input$test,"adjustpval"=input$adjustpv,"thresholdpv"=input$thresholdpv,"thresholdFC"=input$thresholdFC)
@@ -78,6 +78,8 @@ shinyServer(function(input, output,session) {
   )
   observe({
     if(input$confirmdatabutton!=0 & !is.null(input$modelfile)){
+      print("update")
+      dataaaa<<-DATA()
       updateNumericInput(session, "prctvalues", value = DATA()$previousparameters$selectdataparameters$prctvalues)
       updateRadioButtons(session,"selectmethod",selected =  DATA()$previousparameters$selectdataparameters$selectmethod)
       updateCheckboxInput(session ,"NAstructure",value=DATA()$previousparameters$selectdataparameters$NAstructure)
@@ -87,7 +89,8 @@ shinyServer(function(input, output,session) {
       updateNumericInput(session, "thresholdNAstructure", value = DATA()$previousparameters$selectdataparameters$thresholdNAstructure)
       
       updateRadioButtons(session,"rempNA",selected=DATA()$previousparameters$transformdataparameters$rempNA)
-      updateCheckboxInput(session ,"log",value=DATA()$previousparameterstransformdataparameters$parameters$log)
+      updateCheckboxInput(session ,"log",value=DATA()$previousparameters$transformdataparameters$log)
+      updateRadioButtons(session ,"logtype",selected=DATA()$previousparameters$transformdataparameters$logtype)
       updateCheckboxInput(session ,"standardization",value=DATA()$previousparameters$transformdataparameters$standardization)
       updateCheckboxInput(session ,"arcsin",value=DATA()$previousparameters$transformdataparameters$arcsin)
       
@@ -108,13 +111,19 @@ shinyServer(function(input, output,session) {
   
   statetable<-reactive({
     table<-matrix(data = "",nrow = 20,ncol=11)
+    if((input$confirmdatabutton!=0 & !is.null(input$modelfile))){
+      learningfile<-DATA()$previousparameters$importparameters$learningfile
+    }
+    else{learningfile<-input$learningfile}
+
     table[1,1:9]<-c("#","Extensionfile","decimal character","separator character","NA string","sheet number","skip lines","consider NA as 0","transpose")
-    table[2,1:9]<-c("import parameters",input$learningfile$type,input$dec,input$sep,input$NAstring,
+    table[2,1:9]<-c("import parameters",learningfile$type,input$dec,input$sep,input$NAstring,
                          input$sheetn,input$skipn,input$zeroegalNA,input$transpose)
+
     table[3,]<-c("#","name learning file", "number of rows", "number of columns", paste("number of ",levels(DATA()$LEARNING[,1])[1]),
              paste("number of ",levels(DATA()$LEARNING[,1])[2]),"name validation file", "number of rows", "number of columns", paste("number of ",levels(DATA()$VALIDATION[,1])[1]),
              paste("number of ",levels(DATA()$VALIDATION[,1])[2]))
-    table[4,]<-c("main results",input$learningfile$name,dim(DATA()$LEARNING)[1],dim(DATA()$LEARNING)[2],nll(sum(DATA()$LEARNING[,1]==levels(DATA()$LEARNING[,1])[1])),
+    table[4,]<-c("main results",learningfile$name,dim(DATA()$LEARNING)[1],dim(DATA()$LEARNING)[2],nll(sum(DATA()$LEARNING[,1]==levels(DATA()$LEARNING[,1])[1])),
                  nll(sum(DATA()$LEARNING[,1]==levels(DATA()$LEARNING[,1])[2])),nll(input$validationfile$name),nll(dim(DATA()$VALIDATION)[1]),
                  nll(dim(DATA()$VALIDATION)[2]),nll(sum(DATA()$VALIDATION[,1]==levels(DATA()$VALIDATION[,1])[1])),
                  nll(sum(DATA()$VALIDATION[,1]==levels(DATA()$VALIDATION[,1])[2])))
@@ -125,14 +134,16 @@ shinyServer(function(input, output,session) {
     table[7,1:3]<-c("#","number of feature selected","number of feature structured")
     table[8,1:3]<-c("main results",dim(SELECTDATA()$LEARNINGSELECT)[2]-1,nll(dim(SELECTDATA()$STRUCTUREDFEATURES)[2]))
     table[9,1:5]<-c("#","remplace NA by","transformation log","strandardisation","arcsin transformation")
-    table[10,1:5]<-c("transform parameters",transformdataparameters[[4]],transformdataparameters[[1]],transformdataparameters[[2]],transformdataparameters[[3]])
+    if(transformdataparameters[[1]]=="FALSE"){logprint<-"FALSE"}
+    else{logprint<-transformdataparameters[[2]]}
+    table[10,1:5]<-c("transform parameters",transformdataparameters[[5]],logprint,transformdataparameters[[3]],transformdataparameters[[4]])
     table[11,1]<-c("#")
     table[12,1]<-c("main results")
     table[13,1:5]<-c("#","test","use Bonferroni adjustment","threshold of significativity","Fold change threshold")
     table[14,1:5]<-c("test parameters",input$test,input$adjustpv,input$thresholdpv,input$thresholdFC)
     table[15,1:2]<-c("#","number of differently expressed features")
     table[16,1:2]<-c("main results",dim(TEST()$LEARNINGDIFF)[2]-1)
-    
+
     if(input$model!="nomodel"){
       table[17,1:6]<-c("#","model type","cut-off of the model","feature selection","apply model on validation","invers groups")
       table[18,1:6]<-c("model parameters",input$model,input$thresholdmodel,input$fs,input$adjustval,input$invers)
@@ -196,7 +207,7 @@ shinyServer(function(input, output,session) {
 #      if(any(class(out)=="error"))print("error")
 #      else{resimport<-out}
      validate(need(any(class(out)!="error"),"error import"))
-     resimport<-out
+     resimport<<-out
       #resimport<-importfunction(importparameters)
     list(LEARNING=resimport$learning, 
          VALIDATION=resimport$validation,
@@ -339,7 +350,7 @@ TRANSFORMDATA<-reactive({
   learningselect<<-SELECTDATA()$LEARNINGSELECT
   structuredfeatures<<-SELECTDATA()$STRUCTUREDFEATURES
   datastructuresfeatures<<-SELECTDATA()$DATASTRUCTUREDFEATURES
-  transformdataparameters<<-list("log"=input$log,"standardization"=input$standardization,"arcsin"=input$arcsin,"rempNA"=input$rempNA)
+  transformdataparameters<<-list("log"=input$log,"logtype"=input$logtype,"standardization"=input$standardization,"arcsin"=input$arcsin,"rempNA"=input$rempNA)
   validate(need(ncol(learningselect)>0,"No select dataset"))
   if(transformdataparameters$rempNA%in%c("pca","missforest")){
     validate(need(min(apply(X = learningselect,MARGIN = 2,FUN = function(x){sum(!is.na(x))}))>1,"not enough data for pca estimation"))
@@ -678,10 +689,10 @@ output$testNAstructure<- reactive({
 outputOptions(output, 'testNAstructure', suspendWhenHidden=FALSE)
 
 TESTPARAMETERS <- eventReactive(input$tunetest, { 
-  prctvaluestest<-seq(input$prctvaluestest[1],input$prctvaluestest[2],by = 10)
+  prctvaluestest<-seq(input$prctvaluestest[1],input$prctvaluestest[2],by = 5)
   listparameters<<-list("prctvalues"=prctvaluestest,"selectmethod"=input$selectmethodtest,"NAstructure"=as.logical(input$NAstructuretest),
                         "thresholdNAstructure"=input$thresholdNAstructuretest,"structdata"=input$structdatatest,"maxvaluesgroupmin"=input$maxvaluesgroupmintest,
-                        "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"rempNA"=input$rempNAtest,"log"=as.logical(input$logtest),
+                        "minvaluesgroupmax"=input$minvaluesgroupmaxtest,"rempNA"=input$rempNAtest,"log"=as.logical(input$logtest),"logtype"=input$logtypetest,
                         "standardization"=as.logical(input$standardizationtest),"arcsin"=as.logical(input$arcsintest),"test"=input$testtest,"adjustpv"=as.logical(input$adjustpvtest),
                         "thresholdpv"=input$thresholdpvtest,"thresholdFC"=input$thresholdFCtest,"model"=input$modeltest,"thresholdmodel"=0,"fs"=as.logical(input$fstest))
     length(listparameters$prctvalues)

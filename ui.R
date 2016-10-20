@@ -177,20 +177,23 @@ shinyUI(fluidPage(
                    conditionalPanel(condition ="input.help",
                                     helpText("")),
                    fluidRow(
-                     column(6,radioButtons("rempNA", "Replacing NA (Not Attributes) by:",
+                     column(5,radioButtons("rempNA", "Replacing NA (Not Attributes) by:",
                                            c("zero" = "z","mean of the cohort" = "moy",
                                              "mean by group"="moygr","PCA estimation" = "pca","Random forest estimation /!\\" = "missforest")),
                             helpText("/!\\ process can be long"),
                             
                             conditionalPanel(condition ="input.help",
                                              helpText("Random Forest can "))),
-                     column(6,checkboxInput("log","transform data in log",FALSE), 
-                            conditionalPanel(condition ="input.help",helpText("base 10 logarithm")),
-                            checkboxInput("standardization","standardization dataset",FALSE),
-                            conditionalPanel(condition ="input.help",helpText("dividing the columns quadratic mean")),
-                            checkboxInput("arcsin","arcsine transformation",FALSE),
-                            conditionalPanel(condition ="input.help",helpText("each column is rescaled between 1 and 0, and arcsin transformation is applying"))
-                    )
+                     column(3,
+                        checkboxInput("log","transform data in log",FALSE),
+                        checkboxInput("standardization","standardization dataset",FALSE),
+                        conditionalPanel(condition ="input.help",helpText("dividing the columns quadratic mean")),
+                        checkboxInput("arcsin","arcsine transformation",FALSE),
+                        conditionalPanel(condition ="input.help",helpText("each column is rescaled between 1 and 0, and arcsin transformation is applying"))
+                    ),
+                    column(4,
+                    conditionalPanel(condition="input.log",
+                                     radioButtons("logtype",label = NULL,c("ln"="logn","log 10"="log10","log2"="log2"),inline = TRUE)))
                   ),p(downloadButton('downloaddatatransform', 'Download transform data '),align="center"),
                    hr(),
                    
@@ -371,6 +374,7 @@ shinyUI(fluidPage(
               column(3,
                 #br(),br(),
                 checkboxGroupInput("logtest","transform data in log",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = "FALSE"),
+                radioButtons("logtypetest",label = NULL,c("ln"="logn","log 10"="log10","log2"="log2"),inline = TRUE),
                 checkboxGroupInput("standardizationtest","standardization dataset",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected = "FALSE"),
                 checkboxGroupInput("arcsintest","arcsine transformation",choices = list("TRUE"=TRUE,"FALSE"=FALSE),inline = TRUE,selected ="FALSE")
               ),
