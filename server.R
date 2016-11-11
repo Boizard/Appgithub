@@ -430,6 +430,9 @@ TEST<-reactive({
                         "thresholdFC"=input$thresholdFC,"invers"=input$invers)
   learningtransform<<-TRANSFORMDATA()$LEARNINGTRANSFORM
   restest<<-testfunction(tabtransform = learningtransform,testparameters = testparameters )
+  validate(need(testparameters$thresholdFC>=0,"threshold Foldchange has to be positive"))
+  validate(need(testparameters$thresholdpv>=0 &testparameters$thresholdpv<=1,"p-value has to be between 0 and 1"))
+  
   list(LEARNINGDIFF=restest$tabdiff,DATATEST=restest$datatest,HYPOTHESISTEST=restest$hypothesistest,#GROUP=restest$group,
        USEDDATA=restest$useddata,testparameters=restest$testparameters)
 
@@ -521,7 +524,6 @@ output$downloaddatatestSF <- downloadHandler(
 
 ######
 MODEL<-reactive({
-
   if(input$test=="notest"){learningmodel<<-TRANSFORMDATA()$LEARNINGTRANSFORM}
   else{learningmodel<<-TEST()$LEARNINGDIFF}
   validation<<-DATA()$VALIDATION
@@ -529,7 +531,7 @@ MODEL<-reactive({
   transformdataparameters<<-TRANSFORMDATA()$transformdataparameters
   modelparameters<<-list("modeltype"=input$model,"invers"=F,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
   validate(need(ncol(learningmodel)!=0,"No select dataset"))
-  
+
 
   resmodel<<-modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
                            transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures)
