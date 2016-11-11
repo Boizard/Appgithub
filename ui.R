@@ -72,8 +72,8 @@ shinyUI(fluidPage(
           )
         ),
         hr(),
-        radioButtons("paramdownplot","Download images as : ",choices=list("png"="png","jpg"="jpg","pdf"="pdf"),selected="png"),
-        radioButtons("paramdowntable","Download datasets as : ",choices=list("csv"="csv","xlsx"="xlsx"),selected="csv"),
+        radioButtons("paramdownplot","Download images as",choices=list("png"="png","jpg"="jpg","pdf"="pdf"),selected="png"),
+        radioButtons("paramdowntable","Download datasets as",choices=list("csv"="csv","xlsx"="xlsx"),selected="csv"),
         hr(),
         downloadButton("savestate","Save settings RData",class = "dlButton"),
         hr(),
@@ -231,7 +231,6 @@ shinyUI(fluidPage(
                 conditionalPanel(condition ="input.help", helpText("Benjamini & Hochberg correction"))
               )
             ),br(),
-# actionButton("inversrol", div(HTML("<p>&#x21BB</p>")),width=5),
             p(downloadButton('downloaddatastatistics', 'Download statistics'),downloadButton('downloadddatadiff', 'Download differently expressed variables'),align="center"),
             hr(),
             conditionalPanel(condition= "input.test== 'Wtest' || input.test== 'Ttest'",
@@ -260,18 +259,20 @@ shinyUI(fluidPage(
           ,
           tabPanel("Model",
             fluidRow(
+              column(4,
+                radioButtons("model", "Type of model to adjust", 
+                             c("No model" = "nomodel","Random Forest"="randomforest","Support Vector Machine" = "svm"))),
               column(6,
-                radioButtons("model", "Type of model to adjust :", c("No model" = "nomodel","Random Forest"="randomforest","Support Vector Machine" = "svm"))
-              ),
-              column(6,
-                numericInput("thresholdmodel","threshold model" ,0, min = -1, max = 1, step = 0.05),
+                numericInput("thresholdmodel","Threshold model" ,0, min = -1, max = 1, step = 0.05),
                 conditionalPanel(condition ="input.help", helpText("The threshold of the score is used for the validation")),
                 checkboxInput("fs","features selection by cross validation /!\\ ",F),
                 helpText("/!\\ process can be long")
-              ),
+              )
+            ),
             conditionalPanel(condition ="output.fileUploadedval & input.model!='nomodel'  ",
               checkboxInput("adjustval","Adjust model on validation data",F)
-            )),
+            )
+            ,
             hr(),
             conditionalPanel(condition ="input.model!='nomodel'  ",
               fluidRow(
@@ -349,7 +350,7 @@ shinyUI(fluidPage(
                   fluidRow(
                     column(6,
                       numericInput("thresholdNAstructuretest","pvalue for the structure test" , 0.05, min = 0, max = 1, step = 0.005),
-                      radioButtons("structdatatest", "search structure in : ",c("all dataset" = "alldata","selected dataset" = "selecteddata"))
+                      radioButtons("structdatatest", "search structure in",c("all dataset" = "alldata","selected dataset" = "selecteddata"))
                     ),
                     column(6,
                       numericInput("maxvaluesgroupmintest","The group with the minimum number of values has at most x% of values",value = 25,min = 0,max = 100,step = 5),
@@ -367,7 +368,7 @@ shinyUI(fluidPage(
             ),
             fluidRow(
               column(3,
-                checkboxGroupInput("rempNAtest", "Replacing NA (Not Attributes) by:",
+                checkboxGroupInput("rempNAtest", "Replacing NA (Not Attributes) by",
                                c("zero" = "z","mean of the cohort" = "moy",
                                  "mean by group"="moygr","PCA estimation" = "pca","Random forest estimation /!\\" = "missforest"),selected = "moygr")
               ),
@@ -394,7 +395,7 @@ shinyUI(fluidPage(
             h3("Model Parameters"),
             fluidRow(
               column(3,
-                checkboxGroupInput("modeltest", "Type of model to adjust :", c("No model" = "nomodel","Random Forest"="randomforest","Support Vector Machine" = "svm"),selected = "svm")
+                checkboxGroupInput("modeltest", "Type of model to adjust", c("No model" = "nomodel","Random Forest"="randomforest","Support Vector Machine" = "svm"),selected = "svm")
               ),
               column(4,
                 #numericInput("thresholdmodeltest","threshold model" ,0, min = -1, max = 1, step = 0.05),
