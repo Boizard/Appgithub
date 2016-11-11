@@ -897,7 +897,7 @@ scoremodelplot<-function(class,score,names,threshold,type,graph,printnames){
   } 
 }
 
-boxplotggplot<-function(class,score,names,threshold,maintitle="svm score's Boxplot ",graph=T){
+boxplotggplot<-function(class,score,names,threshold,maintitle="Score representation ",graph=T){
   data<-data.frame("names"=names,"class"= class,"score"=as.vector(score))
   if(!graph){return(data)}
   p<-ggplot(data, aes(x=class, y=score)) +
