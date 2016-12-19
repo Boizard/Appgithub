@@ -598,11 +598,11 @@ diffexptest<-function(toto,test="Wtest"){
 
 younden<-function(response,predictor){
   res<-roc(response,predictor)
-  younden<-res$sensitivities+res$specificities-1
-  best<-which(younden==max(younden))
-  youndenbest<-younden[best]
-  sensiyounden<-res$sensitivities[best]
-  speciyounden<-res$specificities[best]
+  youndenscore<-res$sensitivities+res$specificities-1
+  best<-which(youndenscore==max(youndenscore))
+  youndenbest<-youndenscore[best]
+  sensiyounden<-res$specificities[best]
+  speciyounden<-res$sensitivities[best]
   thresholdyounden<-res$thresholds[best]
   return(c(youndenbest,sensiyounden,speciyounden,thresholdyounden))
 }
