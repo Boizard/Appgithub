@@ -2,7 +2,7 @@ library(shiny)
 shinyUI(fluidPage(
   
   # Application title
-  titlePanel("Modelisation Application"),
+  titlePanel("La Boize"),
   sidebarLayout(
     sidebarPanel(
       wellPanel( 
@@ -276,13 +276,14 @@ shinyUI(fluidPage(
             hr(),
             conditionalPanel(condition ="input.model!='nomodel'  ",
               fluidRow(
-                column(6,
+                column(4,
                   textOutput('nbselectmodel',inline=T),'selected variables', 
                            
                   h3("model learning")
                 ),
-                column(6,br(),downloadButton('downloaddatalearning', 'Download learning data'))
-              ),
+                column(4,br(),downloadButton('downloaddatalearning', 'Download learning data')),
+                column(4,radioButtons("plotscoremodel", "",c( "boxplot"="boxplot","points" = "points")))
+                ),
               fluidRow(
                 column(6,
                   plotOutput("plotmodeldecouvroc"),
@@ -294,13 +295,16 @@ shinyUI(fluidPage(
                   p(downloadButton("downloadplotmodeldecouvbp","Download plot"),
                     downloadButton('downloaddatamodeldecouvbp', 'Download raw data'),align="center")
                 ),
-                column(2,radioButtons("plotscoremodel", "",c( "boxplot"="boxplot","points" = "points")),
+                column(2,
                   conditionalPanel(condition="input.plotscoremodel=='points'",checkboxInput("shownames1","show indivuals names",value=FALSE)),
                 br(),
                 tableOutput("tabmodeldecouv"),
                 "Sensibility = ",textOutput("sensibilitydecouv",inline=T), 
                 br(),
-                "Specificity = ",textOutput("specificitydecouv",inline=T)
+                "Specificity = ",textOutput("specificitydecouv",inline=T),
+                br(),hr(),br(),
+                tableOutput("youndendecouv")
+                
               )
             ),
             hr(),
@@ -323,7 +327,10 @@ shinyUI(fluidPage(
                   tableOutput("tabmodelval"),
                   "Sensibility = ",textOutput("sensibilityval",inline=T), 
                   br(),
-                  "Specificity = ",textOutput("specificityval",inline=T)
+                  "Specificity = ",textOutput("specificityval",inline=T),
+                  br(),hr(),br(),
+                  tableOutput("youndenval")
+                  
                 )
               )
             )
