@@ -197,7 +197,7 @@ shinyServer(function(input, output,session) {
     di2<-dim(x = DATA()$VALIDATION)[2]  
   })  
 
-  #si erreur envoyé pb import
+  #si erreur envoyÃ© pb import
   DATA<-reactive({
      importparameters<<-list("learningfile"=input$learningfile,"validationfile"=input$validationfile,"modelfile"=input$modelfile,"extension" = input$filetype,
                             "NAstring"=input$NAstring,"sheetn"=input$sheetn,"skipn"=input$skipn,"dec"=input$dec,"sep"=input$sep,
@@ -557,6 +557,15 @@ output$plotmodeldecouvroc <- renderPlot({
   datalearningmodel<<-MODEL()$DATALEARNINGMODEL
   ROCcurve(validation = datalearningmodel$reslearningmodel$classlearning,decisionvalues =  datalearningmodel$reslearningmodel$scorelearning)
 })
+output$youndendecouv<-renderTable({
+  datalearningmodel<<-MODEL()$DATALEARNINGMODEL
+  resyounden<-younden(datalearningmodel$reslearningmodel$classlearning, datalearningmodel$reslearningmodel$scorelearning)
+  resyounden<-data.frame(resyounden)
+  colnames(resyounden)<-c("")
+  rownames(resyounden)<-c("younden","sensibility younden","specificity younden","threshold younden")
+  
+  resyounden
+})
  
 output$downloadplotdecouvroc = downloadHandler(
   filename = function() {paste('graph','.',input$paramdownplot, sep='')},
@@ -627,7 +636,8 @@ output$downloadplotvalroc = downloadHandler(
 output$downloaddatavalroc <- downloadHandler(
   filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
   content = function(file) {
-    downloaddataset(   ROCcurve(validation =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,decisionvalues =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval,graph=F ), file) })
+    downloaddataset(   ROCcurve(validation =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,decisionvalues =  MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval,graph=F ), file) 
+    })
 
 output$plotmodelvalbp <- renderPlot({
   datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
@@ -648,7 +658,13 @@ output$downloaddatamodelvalbp <- downloadHandler(
     downloaddataset(   scoremodelplot(class = MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval ,score =MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$scoreval,names=rownames(MODEL()$DATAVALIDATIONMODEL$resvalidationmodel),
                                       threshold =input$thresholdmodel ,type =input$plotscoremodel,graph = F), file) })
 
-
+output$youndenval<-renderTable({
+  datavalidationmodel<<-MODEL()$DATAVALIDATIONMODEL
+  resyounden<-younden(datavalidationmodel$resvalidationmodel$classval,datavalidationmodel$resvalidationmodel$scoreval )
+  resyounden<-data.frame(resyounden)
+  colnames(resyounden)<-c("")
+  rownames(resyounden)<-c("younden","sensibility younden","specificity younden","threshold younden")
+})
 output$tabmodelval<-renderTable({ 
   datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
   as.data.frame.matrix(table(datavalidationmodel$resvalidationmodel$predictclassval, datavalidationmodel$resvalidationmodel$classval))
