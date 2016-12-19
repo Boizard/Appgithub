@@ -569,6 +569,7 @@ diffexptest<-function(toto,test="Wtest"){
   FC1o2<-vector()
   FC2o1<-vector()
   auc<-vector()
+  resyounden<-matrix(ncol = 4,nrow = ncol(toto))
   for (i in 1:max(1,ncol(toto)) ){
     lev1<-toto[which(group==namelev1),i]
     lev2<-toto[which(group==namelev2),i]
@@ -578,6 +579,7 @@ diffexptest<-function(toto,test="Wtest"){
     FC1o2[i]<-mlev1[i]/mlev2[i]
     FC2o1[i]<-mlev2[i]/mlev1[i]
     auc[i]<-auc(roc(group,toto[,i]))
+    resyounden[i,]<-younden(response = group,predictor = toto[,i])
     if( test=="Ttest"){pval[i]<-t.test(x = lev1,y = lev2)$p.value}
     else if( test=="Wtest"){pval[i]<-wilcox.test(lev1 ,lev2,exact = F)$p.value } 
   } 
@@ -587,10 +589,22 @@ diffexptest<-function(toto,test="Wtest"){
   logFC2o1<-log2(abs(FC2o1))
   
   
-  listgen<-data.frame(colnames(toto),pval,adjustpval,auc,FC1o2,logFC1o2,FC2o1,logFC2o1,mlev1,mlev2) 
+  listgen<-data.frame(colnames(toto),pval,adjustpval,auc,FC1o2,logFC1o2,FC2o1,logFC2o1,mlev1,mlev2,resyounden) 
   colnames(listgen)<-c("name",paste("pval",test,sep = ""),paste("BHadjustpval",test,sep = ""),"AUC",paste("FoldChange ",namelev1,"/",namelev2,sep = ""),paste("logFoldChange ",namelev1,"/",namelev2,sep = ""),
-                       paste("FoldChange ",namelev2,"/",namelev1,sep = ""),paste("logFoldChange ",namelev2,"/",namelev1,sep = ""),paste("mean",namelev1,sep = ""),paste("mean",namelev2,sep = "")) 
+                       paste("FoldChange ",namelev2,"/",namelev1,sep = ""),paste("logFoldChange ",namelev2,"/",namelev1,sep = ""),paste("mean",namelev1,sep = ""),paste("mean",namelev2,sep = ""),
+                       "younden criterion","sensibility younden","specificity younden","threshold younden") 
   return(listgen)
+}
+
+younden<-function(response,predictor){
+  res<-roc(response,predictor)
+  younden<-res$sensitivities+res$specificities-1
+  best<-which(younden==max(younden))
+  youndenbest<-younden[best]
+  sensiyounden<-res$sensitivities[best]
+  speciyounden<-res$specificities[best]
+  thresholdyounden<-res$thresholds[best]
+  return(c(youndenbest,sensiyounden,speciyounden,thresholdyounden))
 }
 
 
