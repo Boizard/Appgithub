@@ -664,6 +664,8 @@ output$youndenval<-renderTable({
   resyounden<-data.frame(resyounden)
   colnames(resyounden)<-c("")
   rownames(resyounden)<-c("younden","sensibility younden","specificity younden","threshold younden")
+  resyounden
+  
 })
 output$tabmodelval<-renderTable({ 
   datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
