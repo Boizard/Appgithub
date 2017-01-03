@@ -297,9 +297,11 @@ heatmapNA<-function(toto,maintitle="Distribution of NA",graph=T){
       tabm <- melt(tab)
       #tabm<-tabm[-c(1:nrow(toto)),]
       colnames(tabm)<-c("individuals","variables","value")
+      tabm$variables<-as.character(tabm$variables)
+      tabm$individuals<-as.character(tabm$individuals)
       if(ncol(toto)>60){
         ggplot(tabm, aes(variables, individuals)) + geom_tile(aes(fill = value)) + scale_fill_manual(values=c("lightgrey","steelblue"),name="")+ 
-          ggtitle("Distribution of NA") + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
+          ggtitle(maintitle) + theme(plot.title = element_text(size=15),axis.text.x=element_blank())
       }
       else{
         ggplot(tabm, aes(variables, individuals)) + geom_tile(aes(fill = value), colour = "white") + scale_fill_manual(values=c("lightgrey","steelblue"))+ 
