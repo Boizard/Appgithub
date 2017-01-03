@@ -601,7 +601,7 @@ diffexptest<-function(toto,test="Wtest"){
 younden<-function(response,predictor){
   res<-roc(response,predictor)
   youndenscore<-res$sensitivities+res$specificities-1
-  best<-which(youndenscore==max(youndenscore))
+  best<-which(youndenscore==max(youndenscore))[1] # Only the first best is kept
   youndenbest<-youndenscore[best]
   sensiyounden<-res$specificities[best]
   speciyounden<-res$sensitivities[best]
