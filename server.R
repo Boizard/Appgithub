@@ -1,7 +1,7 @@
 options(shiny.maxRequestSize=60*1024^2) 
 source("global.R")
-options(xtable.include.colnames=T)
-options(xtable.include.rownames=T)
+#options(xtable.include.colnames=T)
+#options(xtable.include.rownames=T)
 
 shinyServer(function(input, output,session) {
   
@@ -197,7 +197,7 @@ shinyServer(function(input, output,session) {
     di2<-dim(x = DATA()$VALIDATION)[2]  
   })  
 
-  #si erreur envoyÃ© pb import
+  #si erreur envoyé pb import
   DATA<-reactive({
      importparameters<<-list("learningfile"=input$learningfile,"validationfile"=input$validationfile,"modelfile"=input$modelfile,"extension" = input$filetype,
                             "NAstring"=input$NAstring,"sheetn"=input$sheetn,"skipn"=input$skipn,"dec"=input$dec,"sep"=input$sep,
@@ -565,7 +565,7 @@ output$youndendecouv<-renderTable({
   rownames(resyounden)<-c("younden","sensibility younden","specificity younden","threshold younden")
   
   resyounden
-})
+},include.rownames=TRUE)
  
 output$downloadplotdecouvroc = downloadHandler(
   filename = function() {paste('graph','.',input$paramdownplot, sep='')},
@@ -604,7 +604,8 @@ output$nbselectmodel<-renderText({
 output$tabmodeldecouv<-renderTable({
   datalearningmodel<-MODEL()$DATALEARNINGMODEL
   as.data.frame.matrix(table(datalearningmodel$reslearningmodel$predictclasslearning,datalearningmodel$reslearningmodel$classlearning ))
-})
+},include.rownames=TRUE)
+
 output$sensibilitydecouv<-renderText({
   datalearningmodel<-MODEL()$DATALEARNINGMODEL
   sensibility(predict = datalearningmodel$reslearningmodel$predictclasslearning,class = datalearningmodel$reslearningmodel$classlearning)
@@ -665,12 +666,12 @@ output$youndenval<-renderTable({
   colnames(resyounden)<-c("")
   rownames(resyounden)<-c("younden","sensibility younden","specificity younden","threshold younden")
   resyounden
-  
-})
+},include.rownames=TRUE)
+
 output$tabmodelval<-renderTable({ 
   datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
   as.data.frame.matrix(table(datavalidationmodel$resvalidationmodel$predictclassval, datavalidationmodel$resvalidationmodel$classval))
-})
+},include.rownames=TRUE)
 output$sensibilityval<-renderText({
   datavalidationmodel<-MODEL()$DATAVALIDATIONMODEL
   sensibility(predict = datavalidationmodel$resvalidationmodel$predictclassval,class = datavalidationmodel$resvalidationmodel$classval)
