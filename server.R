@@ -620,7 +620,7 @@ output$specificitydecouv<-renderText({
 output$downloaddatavalidation <- downloadHandler(
   filename = function() { paste('dataset', '.',input$paramdowntable, sep='') },
   content = function(file) {
-    downloaddataset(  MODEL()$DATAVALIDATIONMODEL$validationmodel, file) })
+    downloaddataset( data.frame("Class"=MODEL()$DATAVALIDATIONMODEL$resvalidationmodel$classval,MODEL()$DATAVALIDATIONMODEL$validationmodel,check.names = F), file) })
 
 
 output$plotmodelvalroc <- renderPlot({
