@@ -203,35 +203,6 @@ importfunction<-function(importparameters){
 }
 
 
-# selectvar<-function(resPCA,toto){
-#   #select variables which are correlate to the axes correlate to the cotegorial variable of the first column
-#   restri<-dimdesc(resPCA,axes = c(1:(min(ncol(toto),10)-1)) )
-#   varquali<-vector()
-#   score<-0
-#   #restri is a dimdesc data
-#   for (i in 1:length(restri)){
-#     if ( !is.null(restri[[i]]$quali ) ) {
-#       score<-score+restri[[i]]$quali[[1]]
-#       varquali<-c(varquali,row.names(restri[[i]]$quanti))
-#     }
-#   }
-#   #score<-1- ( ( (1+score)*(nrow(toto)-1) )/(nrow(toto)-ncol(toto)-1) )
-#   return(list("varquali"=varquali,"score"=score))
-# }
-
-# selectdata<-function(toto){
-#   #remove variable  with less than 2 value and replace 0 by NA
-#   n<-ncol(toto)
-#   toto[which(toto==0 ,arr.ind = T )]<-NA
-#   vec<-rep(T,length=n)
-#   for(i in 2:n){
-#     vec[i]<-( (length(unique(toto[,i]))>2) )
-#   }
-#   #rm var with less than 3 values (0 or NA , and 2 other (important for the rempNA PCA))
-#   toto<-toto[,as.logical(vec)]
-#   return(toto)
-# }
-
 selectdatafunction<-function(learning,selectdataparameters){
   learningselect<-selectprctvalues(toto = learning,prctvalues = selectdataparameters$prctvalues,selectmethod =selectdataparameters$selectmethod)
   if(selectdataparameters$NAstructure==T){
@@ -396,10 +367,12 @@ transformdatafunction<-function(learningselect,structuredfeatures,datastructures
     learningtransform[,-1]<-asin(sqrt(learningtransform[,-1]))
   }
   if(transformdataparameters$standardization){
+    learningtransformsd<<-learningtransform
     sdlearningtransform<-apply(X = learningtransform[-1],MARGIN = 2,FUN = sd,na.rm=T)
-    print('sdlearningtransform')
-    print(sdlearningtransform)
-    learningtransform[,-1]<-scale(learningtransform[,-1], center = F, scale = TRUE)
+    #print('sdlearningtransform')
+    #print(sdlearningtransform)
+    learningtransform[,-1]<-scale(learningtransform[,-1],center = F,scale=sdlearningtransform)
+    #learningtransform[,-1]<-scale(learningtransform[,-1], center = F, scale = TRUE)
   }
   learningtransform<-replaceNA(toto=learningtransform,rempNA=transformdataparameters$rempNA,pos=T,NAstructure = F)
   
@@ -802,10 +775,11 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
         learningselect[,-1]<-asin(sqrt(learningselect[,-1]))
       }
       if(transformdataparameters$standardization){
+        learningselectval<<-learningselect
         sdselect<-apply(learningselect[,which(colnames(learningselect)%in%colnames(validationdiff))], 2, sd,na.rm=T)
-        print('sdselect')
-        print(sdselect)
-        validationdiff[,-1]<-validationdiff[,-1]/sdselect
+        #print('sdselect')
+        #print(sdselect)
+        validationdiff[,-1]<-scale(validationdiff[,-1],center=F,scale=sdselect)
       }
 
       #NAstructure if NA ->0
