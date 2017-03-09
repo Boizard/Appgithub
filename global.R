@@ -383,7 +383,7 @@ testNAstructure<-function(toto,threshold=0.05,maxvaluesgroupmin=100,minvaluesgro
 }
 
 transformdatafunction<-function(learningselect,structuredfeatures,datastructuresfeatures,transformdataparameters){
-  learningtransform<-replaceNA(toto=learningselect,rempNA=transformdataparameters$rempNA,pos=T,NAstructure = F)
+  learningtransform<-learningselect
   if(!is.null(structuredfeatures)){
     for(i in 1:ncol(structuredfeatures)){
       learningtransform[which(is.na(structuredfeatures[,i])&learningselect[,1]==as.character(datastructuresfeatures[i,"lessgroup"])),as.character(datastructuresfeatures[i,"names"])]<-0
@@ -391,14 +391,20 @@ transformdatafunction<-function(learningselect,structuredfeatures,datastructures
   }
   if(transformdataparameters$log){ 
     learningtransform[,-1]<-transformationlog(x = learningtransform[,-1]+1,logtype=transformdataparameters$logtype)}
-  if(transformdataparameters$standardization){
-    learningtransform[,-1]<-scale(learningtransform[,-1], center = F, scale = TRUE)
-  }
   if(transformdataparameters$arcsin){
     learningtransform[,-1]<-apply(X = learningtransform[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
     learningtransform[,-1]<-asin(sqrt(learningtransform[,-1]))
   }
-  return(learningtransform)}
+  if(transformdataparameters$standardization){
+    sdlearningtransform<-apply(X = learningtransform[-1],MARGIN = 2,FUN = sd,na.rm=T)
+    print('sdlearningtransform')
+    print(sdlearningtransform)
+    learningtransform[,-1]<-scale(learningtransform[,-1], center = F, scale = TRUE)
+  }
+  learningtransform<-replaceNA(toto=learningtransform,rempNA=transformdataparameters$rempNA,pos=T,NAstructure = F)
+  
+  return(learningtransform)
+}
 
 transformationlog<-function(x,logtype){
   if(logtype=="log10"){x<-log10(x)}
@@ -549,7 +555,7 @@ testfunction<-function(tabtransform,testparameters){
       indvar[1]<-T #keep the categorial variable
       tabdiff<<-tabtransform[,indvar]
     }
-  useddata<-data.frame("names"=datatest[,1],"pval"=pval,"logFC"=datatest[,5],"mean1"=datatest[,8],"mean2"=datatest[,9])
+  useddata<-data.frame("names"=datatest[,1],"pval"=pval,"logFC"=datatest[,5],"mean1"=datatest[,9],"mean2"=datatest[,10])
   }
   return(list("tabdiff"=tabdiff,"datatest"=datatest,"hypothesistest"=datatesthypothesis,"useddata"=useddata,"testparameters"=testparameters))
 }
@@ -715,7 +721,7 @@ SFtest<-function(toto,shaptest=T,Ftest=T,threshold=0.05){
 
 ####
 
-modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformdataparameters,datastructuresfeatures=NULL){
+modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformdataparameters,datastructuresfeatures=NULL,learningselect){
   if(modelparameters$modeltype!="nomodel"){
     colnames(learningmodel)[1]<-"group"
     
@@ -787,14 +793,21 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
       colnames(validation)[1]<-"group"
       validationdiff<-validation[,which(colnames(validation)%in%colnames(learningmodel))]
       if(transformdataparameters$log) { 
-        validationdiff[,-1]<-transformationlog(x = validationdiff[,-1]+1,logtype =transformdataparameters$logtype )}
-      if(transformdataparameters$standardization){
-        validationdiff[,-1]<-scale(validationdiff[,-1], center = F, scale = TRUE)
-      }
+        validationdiff[,-1]<-transformationlog(x = validationdiff[,-1]+1,logtype =transformdataparameters$logtype )
+        learningselect[,-1]<-transformationlog(x = learningselect[,-1]+1,logtype=transformdataparameters$logtype)}
       if(transformdataparameters$arcsin){
         validationdiff[,-1]<-apply(X = validationdiff[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
         validationdiff[,-1]<-asin(sqrt(validationdiff[,-1]))
+        learningselect[,-1]<-apply(X = learningselect[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
+        learningselect[,-1]<-asin(sqrt(learningselect[,-1]))
       }
+      if(transformdataparameters$standardization){
+        sdselect<-apply(learningselect[,which(colnames(learningselect)%in%colnames(validationdiff))], 2, sd,na.rm=T)
+        print('sdselect')
+        print(sdselect)
+        validationdiff[,-1]<-validationdiff[,-1]/sdselect
+      }
+
       #NAstructure if NA ->0
       if(!is.null(datastructuresfeatures)){
         validationdiff[which(is.na(validationdiff),arr.ind = T)[which(which(is.na(validationdiff),arr.ind = T)[,2]%in%which(colnames(validationdiff)%in%datastructuresfeatures$names)),]]<-0
@@ -1225,4 +1238,3 @@ positive<-function(x){
   else{x}
   return(x)
 }
-positive(-8008644064)
