@@ -197,7 +197,7 @@ shinyServer(function(input, output,session) {
     di2<-dim(x = DATA()$VALIDATION)[2]  
   })  
 
-  #si erreur envoyé pb import
+  #si erreur envoyÃ© pb import
   DATA<-reactive({
      importparameters<<-list("learningfile"=input$learningfile,"validationfile"=input$validationfile,"modelfile"=input$modelfile,"extension" = input$filetype,
                             "NAstring"=input$NAstring,"sheetn"=input$sheetn,"skipn"=input$skipn,"dec"=input$dec,"sep"=input$sep,
@@ -529,12 +529,14 @@ MODEL<-reactive({
   validation<<-DATA()$VALIDATION
   datastructuresfeatures<<-SELECTDATA()$DATASTRUCTUREDFEATURES
   transformdataparameters<<-TRANSFORMDATA()$transformdataparameters
+  learningselect<-SELECTDATA()$LEARNINGSELECT
   modelparameters<<-list("modeltype"=input$model,"invers"=F,"thresholdmodel"=input$thresholdmodel,"fs"=input$fs,"adjustval"=input$adjustval)
   validate(need(ncol(learningmodel)!=0,"No select dataset"))
 
 
   resmodel<<-modelfunction(learningmodel = learningmodel,validation = validation,modelparameters = modelparameters,
-                           transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures)
+                           transformdataparameters = transformdataparameters,datastructuresfeatures =  datastructuresfeatures,
+                           learningselect = learningselect)
   
  list("DATALEARNINGMODEL"=resmodel$datalearningmodel,"MODEL"=resmodel$model,"DATAVALIDATIONMODEL"=resmodel$datavalidationmodel,
       "GROUPS"=resmodel$groups,"modelparameters"=resmodel$modelparameters)
