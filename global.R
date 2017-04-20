@@ -392,7 +392,7 @@ transformdatafunction<-function(learningselect,structuredfeatures,datastructures
   if(transformdataparameters$log){ 
     learningtransform[,-1]<-transformationlog(x = learningtransform[,-1]+1,logtype=transformdataparameters$logtype)}
   if(transformdataparameters$arcsin){
-    learningtransform[,-1]<-apply(X = learningtransform[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
+    learningtransform[,-1]<-apply(X = learningtransform[,-1],MARGIN = 2,FUN = function(x){(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))})
     learningtransform[,-1]<-asin(sqrt(learningtransform[,-1]))
   }
   if(transformdataparameters$standardization){
@@ -738,8 +738,9 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
       set.seed(20011203)
   #model <- randomForest(learningmodel[,-1],learningmodel[,1],ntree=500,
    #                           importance=T,keep.forest=T)
-      
-      model<-tuneRF(x = learningmodel[,-1],y = learningmodel[,1],doBest=T,importance=T,plot=F,trace=F)
+      x<-as.data.frame(learningmodel[,-1])
+      colnames(x)<-colnames(learningmodel)[-1]
+      model<-tuneRF(x = x,y = learningmodel[,1],doBest=T,importance=T,plot=F,trace=F)
       if(modelparameters$fs){
         featureselect<-selectedfeature(model=model,modeltype = "randomforest",tab=learningmodel,criterionimportance = "fscore",criterionmodel = "auc")
         model<-featureselect$model
@@ -798,9 +799,9 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
         validationdiff[,-1]<-transformationlog(x = validationdiff[,-1]+1,logtype =transformdataparameters$logtype )
         learningselect[,-1]<-transformationlog(x = learningselect[,-1]+1,logtype=transformdataparameters$logtype)}
       if(transformdataparameters$arcsin){
-        validationdiff[,-1]<-apply(X = validationdiff[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
+        validationdiff[,-1]<-apply(X = as.data.frame(validationdiff[,-1]),MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
         validationdiff[,-1]<-asin(sqrt(validationdiff[,-1]))
-        learningselect[,-1]<-apply(X = learningselect[,-1],MARGIN = 2,FUN = function(x){(x-min(x))/(max(x)-min(x))})
+        learningselect[,-1]<-apply(X = learningselect[,-1],MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
         learningselect[,-1]<-asin(sqrt(learningselect[,-1]))
       }
       if(transformdataparameters$standardization){
@@ -808,7 +809,7 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
         sdselect<-apply(learningselect[,which(colnames(learningselect)%in%colnames(validationdiff))], 2, sd,na.rm=T)
         print('sdselect')
         print(sdselect)
-        validationdiff[,-1]<-scale(validationdiff[,-1],center=F,scale=sdselect)
+        validationdiff[,-1]<-scale(validationdiff[,-1],center=F,scale=sdselect[-1])
       }
 
       #NAstructure if NA ->0
@@ -1069,14 +1070,14 @@ importancemodelsvm<-function(model,modeltype,tabdiff,criterion){
     }
   }
   if(criterion=="fscore"){
-    importancevar<-Fscore(tab = tabdiff[,-1],class=tabdiff[,1])
+    importancevar<-Fscore(tab = as.data.frame(tabdiff[,-1]),class=tabdiff[,1])
   }
   return(importancevar)
 }
 Fscore<-function(tab,class){
-  tabpos<-tab[which(class==levels(class)[1]),]
+  tabpos<-as.data.frame(tab[which(class==levels(class)[1]),])
   npos<-nrow(tabpos)
-  tabneg<-tab[which(class==levels(class)[2]),]
+  tabneg<-as.data.frame(tab[which(class==levels(class)[2]),])
   nneg<-nrow(tabneg)
   fscore<-vector()
   for(i in 1:ncol(tab)){
@@ -1203,7 +1204,7 @@ testparametersfunction<-function(learning,validation,tabparameters){
 ##
 importanceplot<-function(model,learningmodel,modeltype,graph=T){
   validate(need(!is.null(model),"No model"))
-  
+  validate(need(ncol(learningmodel)>2,"only one feature"))
   if(modeltype=="randomforest"){
     var_importance<- data.frame(variables=rownames(model$importance),
                                 importance=as.vector(model$importance[,4]))
