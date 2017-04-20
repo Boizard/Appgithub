@@ -3,6 +3,7 @@ shinyUI(fluidPage(
   
   # Application title
   titlePanel("La Boize"),
+  hr(),
   sidebarLayout(
     sidebarPanel(
       wellPanel( 
