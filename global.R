@@ -795,18 +795,27 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
       #Validation
       colnames(validation)[1]<-"group"
       validationdiff<-validation[,which(colnames(validation)%in%colnames(learningmodel))]
+      learningselect2<-learningselect
       if(transformdataparameters$log) { 
         validationdiff[,-1]<-transformationlog(x = validationdiff[,-1]+1,logtype =transformdataparameters$logtype )
-        learningselect[,-1]<-transformationlog(x = learningselect[,-1]+1,logtype=transformdataparameters$logtype)}
+        learningselect2[,-1]<-transformationlog(x = learningselect2[,-1]+1,logtype=transformdataparameters$logtype)}
       if(transformdataparameters$arcsin){
-        validationdiff[,-1]<-apply(X = as.data.frame(validationdiff[,-1]),MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
-        validationdiff[,-1]<-asin(sqrt(validationdiff[,-1]))
-        learningselect[,-1]<-apply(X = learningselect[,-1],MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
-        learningselect[,-1]<-asin(sqrt(learningselect[,-1]))
+        maxlearn<-apply(X = learningselect[,-1],MARGIN = 2,FUN = max,na.rm=T)
+        minlearn<-apply(X = learningselect[,-1],MARGIN = 2,FUN = min,na.rm=T)
+        for (i in 2:dim(validationdiff)[2]){
+          print(i)
+        validationdiff[,i]<-(validationdiff[,i]-minlearn[i-1])/(maxlearn[i-1]-minlearn[i-1])
+        #validationdiff[,-1]<-apply(X = as.data.frame(validationdiff[,-1]),MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
+        validationdiff[which(validationdiff[,i]>1),i]<-1
+        validationdiff[which(validationdiff[,i]<0),i]<-0
+        validationdiff[,i]<-asin(sqrt(validationdiff[,i]))
+        }     
+        learningselect2[,-1]<-apply(X = learningselect2[,-1],MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
+        learningselect2[,-1]<-asin(sqrt(learningselect2[,-1]))
       }
       if(transformdataparameters$standardization){
-        learningselectval<<-learningselect
-        sdselect<-apply(learningselect[,which(colnames(learningselect)%in%colnames(validationdiff))], 2, sd,na.rm=T)
+        learningselectval<<-learningselect2
+        sdselect<-apply(learningselect2[,which(colnames(learningselect2)%in%colnames(validationdiff))], 2, sd,na.rm=T)
         print('sdselect')
         print(sdselect)
         validationdiff[,-1]<-scale(validationdiff[,-1],center=F,scale=sdselect[-1])
