@@ -803,7 +803,6 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
         maxlearn<-apply(X = learningselect[,-1],MARGIN = 2,FUN = max,na.rm=T)
         minlearn<-apply(X = learningselect[,-1],MARGIN = 2,FUN = min,na.rm=T)
         for (i in 2:dim(validationdiff)[2]){
-          print(i)
         validationdiff[,i]<-(validationdiff[,i]-minlearn[i-1])/(maxlearn[i-1]-minlearn[i-1])
         #validationdiff[,-1]<-apply(X = as.data.frame(validationdiff[,-1]),MARGIN = 2,FUN = function(x){{(x-min(x,na.rm = T))/(max(x,na.rm = T)-min(x,na.rm = T))}})
         validationdiff[which(validationdiff[,i]>1),i]<-1
