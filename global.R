@@ -118,7 +118,7 @@ transformdata<-function(toto,transpose,zeroegalNA){
   
   if(zeroegalNA){toto[which(toto==0,arr.ind = T)]<-NA}
   
-  toto<-as.data.frame(toto)
+toto<-as.data.frame(toto[,c(colnames(toto)[1],sort(colnames(toto)[-1]))])
 }
 confirmdata<-function(toto){
   toto<-as.data.frame(toto)
@@ -740,7 +740,7 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
    #                           importance=T,keep.forest=T)
       x<-as.data.frame(learningmodel[,-1])
       colnames(x)<-colnames(learningmodel)[-1]
-      model<-tuneRF(x = x,y = learningmodel[,1],doBest=T,importance=T,plot=F,trace=F)
+      model<-tuneRF(x = x,y = learningmodel[,1],doBest=T,importance=T,plot=F,trace=F,ntreeTry = 500)
       if(modelparameters$fs){
         featureselect<-selectedfeature(model=model,modeltype = "randomforest",tab=learningmodel,criterionimportance = "fscore",criterionmodel = "auc")
         model<-featureselect$model
