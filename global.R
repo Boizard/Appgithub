@@ -757,7 +757,7 @@ modelfunction<-function(learningmodel,validation=NULL,modelparameters,transformd
     }   
     
     if(modelparameters$modeltype=="svm"){
-      model <- best.tune(svm,group ~ ., data = learningmodel,cross=10 )   
+      model <- best.tune(svm,group ~ ., data = learningmodel,cross=min(dim(learningmodel)[1]-2,10) )   
       
       if(modelparameters$fs){
         #               x<-as.matrix(learning[,-1])
@@ -1004,7 +1004,7 @@ selectedfeature<-function(model,modeltype,tab,criterionimportance,criterionmodel
     i<-i+1
     print(paste(i,"eliminate features"))
     tabdiff2<-tabdiff2[,-rmvar]
-    if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)}
+    if(modeltype=="svm"){model<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=min(dim(tabdiff2)[1]-2,10))}
     if (modeltype=="randomforest"){model <- randomForest(tabdiff2[,-1],tabdiff2[,1],ntree=500,importance=T,keep.forest=T)}
     rmvar<-testmodel(model=model,modeltype = modeltype,tab=tabdiff2,
                      criterionimportance = criterionimportance,criterionmodel = criterionmodel)
@@ -1024,7 +1024,7 @@ testmodel<-function(model,modeltype,tab,criterionimportance,criterionmodel){
     if(criterionmodel=="auc"){aucmod<-auc(roc(tab[,1], as.vector(model$decision.values)))}
     for(i in 1:length(lessimportantevar)){
       tabdiff2<-tab[,-lessimportantevar[i]]
-      resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=10)
+      resmodeldiff<- best.tune(svm,train.y=tabdiff2[,1] ,train.x=tabdiff2[,-1],cross=min(dim(tabdiff2)[1]-2,10))
       if(criterionmodel=="accuracy"){test[i]<-resmodeldiff$tot.accuracy-model$tot.accuracy}
       if(criterionmodel=="BER"){
         #print(paste("Ber test :",BER(class = tabdiff2[,1],classpredict = resmodeldiff$fitted) ))
